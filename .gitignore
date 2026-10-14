@@ -1,0 +1,13 @@
+# Configuración local del editor
+.vscode/
+
+# Usuarios de prueba con contraseñas de cuentas reales del proyecto de Supabase:
+# no se sube a un repo público
+seed_usuarios_prueba.sql
+
+# Archivos que genera la CLI de DBML al fallar
+dbml-error.log
+
+node_modules/
+.env
+.env.*

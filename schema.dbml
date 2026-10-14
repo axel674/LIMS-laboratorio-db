@@ -1,0 +1,342 @@
+// LIMS — Laboratorio Bioquímico
+// Modelo de base de datos (PostgreSQL / Supabase)
+// Pegar este archivo en https://dbdiagram.io para verlo como diagrama.
+
+Project LIMS_Laboratorio {
+  database_type: 'PostgreSQL'
+  Note: '''
+  Base de datos del LIMS. Pensada para Supabase:
+  - Los usuarios (login) viven en auth.users, que maneja Supabase.
+  - Cada usuario tiene un perfil con su rol, que se usa en las políticas RLS.
+  - La trazabilidad de cada muestra queda en movimientos_muestra (usuario, fecha y hora).
+  '''
+}
+
+// ─────────────────────────────────────────────
+// Tipos enumerados
+// ─────────────────────────────────────────────
+
+Enum rol_usuario {
+  admin
+  bioquimico
+  tecnico
+  recepcion
+  paciente
+}
+
+Enum estado_turno {
+  reservado
+  confirmado
+  atendido
+  cancelado
+  ausente
+}
+
+Enum tipo_extraccion {
+  ambulatoria
+  pediatrica
+}
+
+Enum estado_orden {
+  abierta
+  en_proceso
+  completa
+  informada
+  anulada
+}
+
+Enum estado_muestra {
+  extraida
+  procesada
+  rechazada
+}
+
+Enum estado_resultado {
+  pendiente
+  validado
+  rechazado
+}
+
+Enum estado_informe {
+  borrador
+  firmado
+  publicado
+  anulado
+}
+
+Enum sexo {
+  F
+  M
+  X
+}
+
+// ─────────────────────────────────────────────
+// Usuarios y personas
+// ─────────────────────────────────────────────
+
+Table auth.users {
+  id uuid [pk]
+  email varchar
+  Note: 'Tabla de Supabase Auth. No se crea a mano: la administra Supabase.'
+}
+
+Table perfiles {
+  id uuid [pk, ref: - auth.users.id]
+  rol rol_usuario [not null]
+  nombre varchar [not null]
+  apellido varchar [not null]
+  telefono varchar
+  activo boolean [not null, default: true]
+  debe_cambiar_password boolean [not null, default: false, note: 'true mientras el paciente use la contraseña provisoria']
+  created_at timestamptz [not null, default: `now()`]
+  Note: '''Un perfil por cada usuario que inicia sesión (personal o paciente).
+  Email interno de login: <dni>@pacientes.lims.local o <usuario>@personal.lims.local.'''
+}
+
+Table personal {
+  perfil_id uuid [pk, ref: - perfiles.id]
+  usuario varchar [unique, not null, note: 'Ej: bioq_perez']
+  matricula varchar [unique, note: 'Matrícula profesional (MP). Obligatoria para bioquímicos.']
+  cargo varchar
+  Note: 'Datos propios del personal del laboratorio.'
+}
+
+Table pacientes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  perfil_id uuid [unique, ref: - perfiles.id, note: 'Nulo si el paciente todavía no creó su cuenta en el portal']
+  dni varchar(10) [unique, not null]
+  nombre varchar [not null]
+  apellido varchar [not null]
+  fecha_nacimiento date [not null]
+  sexo sexo
+  telefono varchar
+  email varchar [note: 'Email real del paciente: lo carga en su primer ingreso y se usa para los avisos']
+  domicilio varchar
+  obra_social_id bigint [ref: ?>? obras_sociales.id]
+  nro_afiliado varchar
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table obras_sociales {
+  id bigint [pk, increment]
+  nombre varchar [unique, not null]
+  codigo varchar [unique]
+  activa boolean [not null, default: true]
+}
+
+Table medicos {
+  id bigint [pk, increment]
+  nombre varchar [not null]
+  apellido varchar [not null]
+  matricula varchar [unique, not null]
+  especialidad varchar
+  email varchar
+  Note: 'Médicos que solicitan los análisis (no inician sesión).'
+}
+
+// ─────────────────────────────────────────────
+// Turnos y recepción
+// ─────────────────────────────────────────────
+
+Table turnos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  paciente_id uuid [not null, ref: > pacientes.id]
+  fecha_hora timestamptz [not null]
+  tipo tipo_extraccion [not null, default: 'ambulatoria']
+  estado estado_turno [not null, default: 'reservado']
+  observaciones text
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    fecha_hora
+  }
+}
+
+Table ordenes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  nro_orden varchar [unique, not null]
+  paciente_id uuid [not null, ref: > pacientes.id]
+  medico_id bigint [ref: ?>? medicos.id]
+  turno_id uuid [unique, ref: - turnos.id]
+  obra_social_id bigint [ref: ?>? obras_sociales.id]
+  estado estado_orden [not null, default: 'abierta']
+  recibida_por uuid [ref: ?>? perfiles.id, note: 'Personal de recepción que cargó la orden']
+  fecha_recepcion timestamptz [not null, default: `now()`]
+  observaciones text
+  Note: 'Orden médica: qué análisis le pidieron al paciente.'
+}
+
+// ─────────────────────────────────────────────
+// Catálogo de análisis
+// ─────────────────────────────────────────────
+
+Table tipos_muestra {
+  id bigint [pk, increment]
+  nombre varchar [unique, not null, note: 'Sangre entera, suero, orina, etc.']
+  tubo varchar [note: 'Ej: tapa lila (EDTA), tapa roja']
+}
+
+Table analisis {
+  id bigint [pk, increment]
+  codigo varchar [unique, not null]
+  nombre varchar [not null, note: 'Ej: Hematocrito, Glucemia']
+  tipo_muestra_id bigint [not null, ref: > tipos_muestra.id]
+  unidad varchar [note: 'Ej: %, mg/dL']
+  valor_ref_min numeric
+  valor_ref_max numeric
+  valor_ref_texto varchar [note: 'Para valores no numéricos, ej: Negativo']
+  dias_demora int [note: 'Días estimados hasta el resultado']
+  activo boolean [not null, default: true]
+  Note: 'Cada estudio individual. Es lo que se tilda en recepción.'
+}
+
+Table grupos_analisis {
+  id bigint [pk, increment]
+  codigo varchar [unique, not null]
+  nombre varchar [not null, note: 'Ej: Hemograma completo, Perfil lipídico']
+  activo boolean [not null, default: true]
+  Note: 'Atajo de recepción: al tildar el grupo se tildan todos sus estudios.'
+}
+
+Table grupo_analisis_items {
+  grupo_id bigint [ref: > grupos_analisis.id]
+  analisis_id bigint [ref: > analisis.id]
+  orden int [note: 'Orden en que aparece el estudio dentro del grupo y del informe']
+
+  indexes {
+    (grupo_id, analisis_id) [pk]
+  }
+  Note: 'Qué estudios componen cada grupo. Un estudio puede estar en varios grupos.'
+}
+
+// ─────────────────────────────────────────────
+// Muestras y trazabilidad
+// ─────────────────────────────────────────────
+
+Table muestras {
+  id uuid [pk, default: `gen_random_uuid()`]
+  codigo_barras varchar [unique, not null]
+  orden_id uuid [not null, ref: > ordenes.id]
+  tipo_muestra_id bigint [not null, ref: > tipos_muestra.id]
+  estado estado_muestra [not null, default: 'extraida']
+  fecha_extraccion timestamptz [not null, default: `now()`]
+  motivo_rechazo text [note: 'Obligatorio cuando el estado es rechazada']
+  Note: 'Cada tubo físico, identificado con código de barras. Estados internos: extraida → procesada o rechazada.'
+}
+
+Table movimientos_muestra {
+  id bigint [pk, increment]
+  muestra_id uuid [not null, ref: > muestras.id]
+  estado_anterior estado_muestra
+  estado_nuevo estado_muestra [not null]
+  usuario_id uuid [not null, ref: > perfiles.id]
+  fecha_hora timestamptz [not null, default: `now()`]
+  observacion text
+
+  indexes {
+    (muestra_id, fecha_hora)
+  }
+  Note: 'Trazabilidad: cada cambio de estado de la muestra con usuario, fecha y hora. El movimiento a extraida registra quién hizo la extracción.'
+}
+
+Table orden_analisis {
+  id uuid [pk, default: `gen_random_uuid()`]
+  orden_id uuid [not null, ref: > ordenes.id]
+  analisis_id bigint [not null, ref: > analisis.id]
+  grupo_id bigint [ref: ?>? grupos_analisis.id, note: 'Grupo desde el que se tildó. Nulo si se tildó suelto']
+  muestra_id uuid [ref: ?>? muestras.id, note: 'Tubo en el que se procesa este análisis']
+
+  indexes {
+    (orden_id, analisis_id) [unique, note: 'Un estudio no se repite aunque esté en dos grupos tildados']
+  }
+  Note: 'Cada estudio tildado en la orden: una fila por estudio.'
+}
+
+// ─────────────────────────────────────────────
+// Resultados e informes
+// ─────────────────────────────────────────────
+
+Table resultados {
+  id uuid [pk, default: `gen_random_uuid()`]
+  orden_analisis_id uuid [unique, not null, ref: - orden_analisis.id]
+  valor_numerico numeric
+  valor_texto varchar
+  fuera_de_rango boolean [not null, default: false]
+  estado estado_resultado [not null, default: 'pendiente']
+  validado_por uuid [ref: ?>? perfiles.id, note: 'Bioquímico que carga y valida el resultado']
+  validado_en timestamptz
+
+  indexes {
+    estado
+  }
+}
+
+Table informes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  orden_id uuid [unique, not null, ref: - ordenes.id]
+  estado estado_informe [not null, default: 'borrador']
+  firmado_por uuid [ref: ?>? personal.perfil_id, note: 'Bioquímico matriculado']
+  firmado_en timestamptz
+  hash_firma varchar [note: 'Huella del contenido firmado electrónicamente']
+  pdf_path varchar [note: 'Ruta del PDF en Supabase Storage']
+  publicado_en timestamptz [note: 'Desde cuándo lo ve el paciente']
+  email_enviado_en timestamptz [note: 'Cuándo se avisó al paciente por mail. Nulo si todavía no se envió']
+}
+
+// ─────────────────────────────────────────────
+// Notificaciones
+// ─────────────────────────────────────────────
+
+Table notificaciones {
+  id bigint [pk, increment]
+  destinatario_id uuid [not null, ref: > perfiles.id]
+  tipo varchar [not null, note: 'Ej: resultado_disponible, muestra_rechazada']
+  mensaje text [not null]
+  orden_id uuid [ref: ?>? ordenes.id]
+  leida boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (destinatario_id, leida)
+  }
+}
+
+// ─────────────────────────────────────────────
+// Grupos (colorean el diagrama por módulo)
+// ─────────────────────────────────────────────
+
+TableGroup usuarios_y_personas [color: #1E3A5F] {
+  auth.users
+  perfiles
+  personal
+  pacientes
+  obras_sociales
+  medicos
+}
+
+TableGroup recepcion [color: #0E9AA7] {
+  turnos
+  ordenes
+}
+
+TableGroup catalogo [color: #6C5CE7] {
+  tipos_muestra
+  analisis
+  grupos_analisis
+  grupo_analisis_items
+}
+
+TableGroup muestras_y_trazabilidad [color: #E17055] {
+  muestras
+  movimientos_muestra
+  orden_analisis
+}
+
+TableGroup resultados_e_informes [color: #00B894] {
+  resultados
+  informes
+}
+
+TableGroup avisos [color: #FDCB6E] {
+  notificaciones
+}
