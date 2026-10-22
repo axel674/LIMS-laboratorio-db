@@ -24,12 +24,11 @@ Enum rol_usuario {
   paciente
 }
 
-Enum estado_turno {
-  reservado
-  confirmado
+Enum estado_atencion {
+  en_espera
+  llamado
   atendido
-  cancelado
-  ausente
+  se_retiro
 }
 
 Enum tipo_extraccion {
@@ -112,9 +111,17 @@ Table pacientes {
   telefono varchar
   email varchar [note: 'Email real del paciente: lo carga en su primer ingreso y se usa para los avisos']
   domicilio varchar
-  obra_social_id bigint [ref: ?>? obras_sociales.id]
-  nro_afiliado varchar
+  obra_social_id bigint [ref: ?>? obras_sociales.id, note: 'Vacío = particular']
+  nro_afiliado varchar [note: 'Obligatorio si tiene obra social']
   created_at timestamptz [not null, default: `now()`]
+}
+
+Table configuracion {
+  id boolean [pk, default: true, note: 'Siempre true: la tabla tiene una sola fila']
+  cantidad_boxes smallint [not null, default: 2, note: 'Boxes de extracción habilitados (1 a 20)']
+  updated_at timestamptz [not null, default: `now()`]
+  updated_by uuid [ref: > perfiles.id]
+  Note: 'Parámetros del laboratorio que el administrador puede cambiar.'
 }
 
 Table obras_sociales {
@@ -141,15 +148,25 @@ Table medicos {
 Table turnos {
   id uuid [pk, default: `gen_random_uuid()`]
   paciente_id uuid [not null, ref: > pacientes.id]
-  fecha_hora timestamptz [not null]
+  fecha date [not null, note: 'Día de atención (hora de Tucumán)']
+  numero int [not null, note: 'Número de atención; se reinicia cada día']
   tipo tipo_extraccion [not null, default: 'ambulatoria']
-  estado estado_turno [not null, default: 'reservado']
+  estado estado_atencion [not null, default: 'en_espera']
+  box smallint [note: 'Box de extracción desde el que se llamó al paciente']
   observaciones text
-  created_at timestamptz [not null, default: `now()`]
+  registrado_por uuid [ref: > perfiles.id, note: 'Recepción que registró la llegada']
+  llamado_por uuid [ref: > perfiles.id]
+  llamado_at timestamptz
+  finalizado_por uuid [ref: > perfiles.id]
+  finalizado_at timestamptz
+  created_at timestamptz [not null, default: `now()`, note: 'Hora de llegada']
 
   indexes {
-    fecha_hora
+    (fecha, numero) [unique]
+    (paciente_id, fecha) [unique, note: 'Un registro por paciente por día']
+    (fecha, estado, numero)
   }
+  Note: 'Fila de atención del día: se atiende por orden de llegada, sin turnos con hora. Se modifica solo con las funciones registrar_llegada, llamar_siguiente y finalizar_atencion.'
 }
 
 Table ordenes {
@@ -317,6 +334,7 @@ TableGroup usuarios_y_personas [color: #1E3A5F] {
 TableGroup recepcion [color: #0E9AA7] {
   turnos
   ordenes
+  configuracion
 }
 
 TableGroup catalogo [color: #6C5CE7] {
