@@ -14,11 +14,12 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261002_01_esquema.sql` | Crea tipos, tablas, claves e índices. |
 | `migrations/20261002_02_seguridad.sql` | Roles, trazabilidad automática de muestras, primer ingreso del paciente y políticas RLS. |
 | `migrations/20261013_01_primer_ingreso_personal.sql` | Función `completar_primer_ingreso_personal()`: el personal baja su indicador de contraseña provisoria al elegir una propia. |
+| `migrations/20261021_01_catalogo_analisis.sql` | Reglas del catálogo (código, rango de referencia, demora) y carga inicial de 5 tipos de muestra y 13 análisis de rutina. Los valores de referencia son orientativos: los tiene que revisar un bioquímico. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 
-Las tres migraciones y las dos Edge Functions ya están aplicadas en el proyecto.
+Las cuatro migraciones y las dos Edge Functions ya están aplicadas en el proyecto.
 
 ## Cómo se actualiza el modelo
 
