@@ -5,7 +5,10 @@
 //    y una contraseña provisoria aleatoria.
 // 2. Crea su perfil (rol paciente, debe_cambiar_password = true).
 // 3. Crea su ficha en pacientes, o enlaza la ficha si el DNI ya estaba cargado.
-// Devuelve la contraseña provisoria UNA sola vez, para entregársela al paciente.
+//    Obra social: obra_social_id vacío = particular; si tiene obra social, el
+//    número de afiliado es obligatorio.
+// Devuelve el id de la ficha y la contraseña provisoria UNA sola vez, para
+// entregársela al paciente.
 //
 // Corre en el servidor porque crear usuarios requiere la clave secreta,
 // que nunca puede estar en el frontend.
@@ -62,7 +65,7 @@ Deno.serve(async (req) => {
     return responder({ error: 'Solo recepción o un administrador pueden dar de alta pacientes' }, 403);
   }
 
-  let datos: Record<string, string>;
+  let datos: Record<string, unknown>;
   try {
     datos = await req.json();
   } catch {
@@ -78,6 +81,20 @@ Deno.serve(async (req) => {
   if (!nombre || !apellido) return responder({ error: 'Nombre y apellido son obligatorios' }, 400);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento)) {
     return responder({ error: 'La fecha de nacimiento debe tener el formato AAAA-MM-DD' }, 400);
+  }
+
+  const obraSocialId = datos.obra_social_id ? Number(datos.obra_social_id) : null;
+  const nroAfiliado = String(datos.nro_afiliado ?? '').trim() || null;
+  if (obraSocialId !== null) {
+    if (!Number.isInteger(obraSocialId)) return responder({ error: 'La obra social no es válida' }, 400);
+    const { data: obraSocial } = await admin
+      .from('obras_sociales')
+      .select('id')
+      .eq('id', obraSocialId)
+      .eq('activa', true)
+      .maybeSingle();
+    if (!obraSocial) return responder({ error: 'La obra social elegida no existe o no está activa' }, 400);
+    if (!nroAfiliado) return responder({ error: 'El número de afiliado es obligatorio si tiene obra social' }, 400);
   }
 
   const { data: fichaExistente } = await admin
@@ -124,11 +141,13 @@ Deno.serve(async (req) => {
     fecha_nacimiento: fechaNacimiento,
     sexo: datos.sexo || null,
     telefono: datos.telefono || null,
+    obra_social_id: obraSocialId,
+    nro_afiliado: obraSocialId === null ? null : nroAfiliado,
   };
-  const { error: errorFicha } = fichaExistente
-    ? await admin.from('pacientes').update(ficha).eq('id', fichaExistente.id)
-    : await admin.from('pacientes').insert(ficha);
+  const { data: fichaGuardada, error: errorFicha } = fichaExistente
+    ? await admin.from('pacientes').update(ficha).eq('id', fichaExistente.id).select('id').single()
+    : await admin.from('pacientes').insert(ficha).select('id').single();
   if (errorFicha) return deshacer(`No se pudo guardar la ficha del paciente: ${errorFicha.message}`);
 
-  return responder({ dni, password_provisoria: passwordProvisoria }, 201);
+  return responder({ paciente_id: fichaGuardada.id, dni, password_provisoria: passwordProvisoria }, 201);
 });
