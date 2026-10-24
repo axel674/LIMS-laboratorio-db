@@ -16,11 +16,13 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261013_01_primer_ingreso_personal.sql` | Función `completar_primer_ingreso_personal()`: el personal baja su indicador de contraseña provisoria al elegir una propia. |
 | `migrations/20261021_01_catalogo_analisis.sql` | Reglas del catálogo (código, rango de referencia, demora) y carga inicial de 5 tipos de muestra y 13 análisis de rutina. Los valores de referencia son orientativos: los tiene que revisar un bioquímico. |
 | `migrations/20261022_01_fila_atencion.sql` | Fila de atención del día (se atiende por orden de llegada): `turnos` pasa a guardar el número de atención de cada paciente por día, con las funciones `registrar_llegada`, `llamar_siguiente` y `finalizar_atencion`. Agrega `configuracion` (cantidad de boxes), carga las obras sociales y exige número de afiliado cuando hay obra social. |
+| `migrations/20261023_01_sucursales.sql` | Tabla `sucursales` (2 provisorias, S1 y S2, con su prefijo y sus boxes). La fila de atención, su numeración del día y los boxes pasan a ser por sucursal; `registrar_llegada` y `llamar_siguiente` reciben la sucursal (si no llega, usan la primera). `configuracion` queda sin uso. |
+| `migrations/20261023_02_localidad_sucursal.sql` | `sucursales.localidad` (San Miguel y Concepción), que el panel muestra al lado del logo. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 
-Las cinco migraciones y las dos Edge Functions ya están aplicadas en el proyecto.
+Las siete migraciones y las dos Edge Functions ya están aplicadas en el proyecto.
 
 ## Cómo se actualiza el modelo
 
