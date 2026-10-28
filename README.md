@@ -18,11 +18,13 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261022_01_fila_atencion.sql` | Fila de atención del día (se atiende por orden de llegada): `turnos` pasa a guardar el número de atención de cada paciente por día, con las funciones `registrar_llegada`, `llamar_siguiente` y `finalizar_atencion`. Agrega `configuracion` (cantidad de boxes), carga las obras sociales y exige número de afiliado cuando hay obra social. |
 | `migrations/20261023_01_sucursales.sql` | Tabla `sucursales` (2 provisorias, S1 y S2, con su prefijo y sus boxes). La fila de atención, su numeración del día y los boxes pasan a ser por sucursal; `registrar_llegada` y `llamar_siguiente` reciben la sucursal (si no llega, usan la primera). `configuracion` queda sin uso. |
 | `migrations/20261023_02_localidad_sucursal.sql` | `sucursales.localidad` (San Miguel y Concepción), que el panel muestra al lado del logo. |
+| `migrations/20261028_01_rls_sucursal.sql` | RLS por sucursal: `personal.sucursal_id` y `ordenes.sucursal_id`, la función `privado.sucursal_actual()` y las políticas de órdenes, estudios, muestras, resultados e informes filtradas por la sucursal del empleado. El admin sigue viendo todo. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
+| `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 
-Las siete migraciones y las dos Edge Functions ya están aplicadas en el proyecto.
+Las ocho migraciones se aplican en orden en el proyecto de Supabase; las dos Edge Functions se despliegan con la CLI.
 
 ## Cómo se actualiza el modelo
 
@@ -38,6 +40,9 @@ Las siete migraciones y las dos Edge Functions ya están aplicadas en el proyect
 - Todas las tablas tienen RLS. Sin sesión no se accede a nada.
 - Un paciente solo ve su ficha, sus turnos, sus órdenes y sus informes **publicados**.
 - El personal ve según su rol (`admin`, `bioquimico`, `tecnico`, `recepcion`).
+- Cada empleado pertenece a una sucursal (`personal.sucursal_id`) y solo ve las órdenes, muestras, resultados e
+  informes de esa sucursal. El admin ve todas y puede elegir con cuál trabajar. Una cuenta sin sucursal asignada
+  no ve datos de ninguna hasta que el admin se la asigne.
 - Cada alta o cambio de estado de una muestra queda registrado solo en `movimientos_muestra`,
   con usuario, fecha y hora. Esa tabla no se puede editar ni borrar.
 - Una muestra no se puede rechazar sin `motivo_rechazo`.

@@ -97,6 +97,7 @@ Table personal {
   usuario varchar [unique, not null, note: 'Ej: bioq_perez']
   matricula varchar [unique, note: 'Matrícula profesional (MP). Obligatoria para bioquímicos.']
   cargo varchar
+  sucursal_id bigint [ref: ?>? sucursales.id, note: 'Sucursal donde trabaja. Vacío = sin asignar: solo el admin puede trabajar así; el resto no ve datos de ninguna sucursal.']
   Note: 'Datos propios del personal del laboratorio.'
 }
 
@@ -188,6 +189,7 @@ Table ordenes {
   paciente_id uuid [not null, ref: > pacientes.id]
   medico_id bigint [ref: ?>? medicos.id]
   turno_id uuid [unique, ref: - turnos.id]
+  sucursal_id bigint [ref: ?>? sucursales.id, note: 'Sucursal que emitió la orden. Se hereda del turno; si no viene de un turno, se indica al crearla.']
   obra_social_id bigint [ref: ?>? obras_sociales.id]
   estado estado_orden [not null, default: 'abierta']
   recibida_por uuid [ref: ?>? perfiles.id, note: 'Personal de recepción que cargó la orden']
