@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-10-28T14:41:35.326Z
+-- Generated at: 2026-10-28T20:36:20.844Z
 
 CREATE SCHEMA "auth";
 
@@ -148,14 +148,18 @@ CREATE TABLE "ordenes" (
   "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid()),
   "nro_orden" varchar UNIQUE NOT NULL,
   "paciente_id" uuid NOT NULL,
-  "medico_id" bigint,
-  "turno_id" uuid UNIQUE,
+  "medico_id" bigint NOT NULL,
+  "turno_id" uuid,
   "sucursal_id" bigint,
   "obra_social_id" bigint,
   "estado" estado_orden NOT NULL DEFAULT 'abierta',
+  "fecha_orden" date NOT NULL,
   "recibida_por" uuid,
   "fecha_recepcion" timestamptz NOT NULL DEFAULT (now()),
-  "observaciones" text
+  "observaciones" text,
+  "motivo_anulacion" text,
+  "anulada_por" uuid,
+  "anulada_en" timestamptz
 );
 
 CREATE TABLE "tipos_muestra" (
@@ -216,7 +220,8 @@ CREATE TABLE "orden_analisis" (
   "orden_id" uuid NOT NULL,
   "analisis_id" bigint NOT NULL,
   "grupo_id" bigint,
-  "muestra_id" uuid
+  "muestra_id" uuid,
+  "cubierto" boolean NOT NULL DEFAULT true
 );
 
 CREATE TABLE "resultados" (
@@ -322,9 +327,19 @@ COMMENT ON COLUMN "turnos"."created_at" IS 'Hora de llegada';
 
 COMMENT ON TABLE "ordenes" IS 'Orden médica: qué análisis le pidieron al paciente.';
 
-COMMENT ON COLUMN "ordenes"."recibida_por" IS 'Personal de recepción que cargó la orden';
+COMMENT ON COLUMN "ordenes"."nro_orden" IS 'Lo genera la base: prefijo de la sucursal + año + correlativo (ej: S1-2026-000123)';
+
+COMMENT ON COLUMN "ordenes"."turno_id" IS 'Visita en la que se recibió. Un turno puede tener varias órdenes (ej: sangre en una y orina en otra)';
 
 COMMENT ON COLUMN "ordenes"."sucursal_id" IS 'Sucursal que emitió la orden. Se hereda del turno; si no viene de un turno, se indica al crearla.';
+
+COMMENT ON COLUMN "ordenes"."obra_social_id" IS 'Obra social de esta orden (se propone la del paciente). Vacío = particular';
+
+COMMENT ON COLUMN "ordenes"."fecha_orden" IS 'Fecha en que el médico firmó la orden (no puede ser futura)';
+
+COMMENT ON COLUMN "ordenes"."recibida_por" IS 'Personal de recepción que cargó la orden';
+
+COMMENT ON COLUMN "ordenes"."motivo_anulacion" IS 'Obligatorio cuando la orden se anula';
 
 COMMENT ON COLUMN "tipos_muestra"."nombre" IS 'Sangre entera, suero, orina, etc.';
 
@@ -359,6 +374,8 @@ COMMENT ON TABLE "orden_analisis" IS 'Cada estudio tildado en la orden: una fila
 COMMENT ON COLUMN "orden_analisis"."grupo_id" IS 'Grupo desde el que se tildó. Nulo si se tildó suelto';
 
 COMMENT ON COLUMN "orden_analisis"."muestra_id" IS 'Tubo en el que se procesa este análisis';
+
+COMMENT ON COLUMN "orden_analisis"."cubierto" IS 'Si lo cubre la obra social de la orden. Falso = se cobra como particular';
 
 COMMENT ON COLUMN "resultados"."validado_por" IS 'Bioquímico que carga y valida el resultado';
 
@@ -409,6 +426,8 @@ ALTER TABLE "ordenes" ADD FOREIGN KEY ("sucursal_id") REFERENCES "sucursales" ("
 ALTER TABLE "ordenes" ADD FOREIGN KEY ("obra_social_id") REFERENCES "obras_sociales" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "ordenes" ADD FOREIGN KEY ("recibida_por") REFERENCES "perfiles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "ordenes" ADD FOREIGN KEY ("anulada_por") REFERENCES "perfiles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "analisis" ADD FOREIGN KEY ("tipo_muestra_id") REFERENCES "tipos_muestra" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
