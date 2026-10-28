@@ -228,10 +228,10 @@ Table analisis {
 
 Table grupos_analisis {
   id bigint [pk, increment]
-  codigo varchar [unique, not null]
-  nombre varchar [not null, note: 'Ej: Hemograma completo, Perfil lipídico']
+  codigo varchar [unique, not null, note: 'Ej: SANGRE. De 2 a 20 letras mayúsculas, números, guion o guion bajo']
+  nombre varchar [unique, not null, note: 'Ej: Sangre completa, Hepatograma']
   activo boolean [not null, default: true]
-  Note: 'Atajo de recepción: al tildar el grupo se tildan todos sus estudios.'
+  Note: 'Atajo de recepción: al elegir el grupo en la orden se agregan todos sus estudios. No se borran: se desactivan.'
 }
 
 Table grupo_analisis_items {
