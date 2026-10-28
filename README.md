@@ -19,12 +19,13 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261023_01_sucursales.sql` | Tabla `sucursales` (2 provisorias, S1 y S2, con su prefijo y sus boxes). La fila de atención, su numeración del día y los boxes pasan a ser por sucursal; `registrar_llegada` y `llamar_siguiente` reciben la sucursal (si no llega, usan la primera). `configuracion` queda sin uso. |
 | `migrations/20261023_02_localidad_sucursal.sql` | `sucursales.localidad` (San Miguel y Concepción), que el panel muestra al lado del logo. |
 | `migrations/20261028_01_rls_sucursal.sql` | RLS por sucursal: `personal.sucursal_id` y `ordenes.sucursal_id`, la función `privado.sucursal_actual()` y las políticas de órdenes, estudios, muestras, resultados e informes filtradas por la sucursal del empleado. El admin sigue viendo todo. |
+| `migrations/20261029_01_ordenes.sql` | Órdenes médicas (LIMS-10): el número lo genera la base (prefijo de la sucursal + año + correlativo, ej. `S1-2026-000123`); un turno puede tener varias órdenes; médico obligatorio; `fecha_orden`, anulación con motivo y `orden_analisis.cubierto` (estudios que la obra social no cubre). Funciones `crear_orden`, `modificar_orden` y `anular_orden`, que guardan la orden y sus estudios juntos. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 
-Las ocho migraciones se aplican en orden en el proyecto de Supabase; las dos Edge Functions se despliegan con la CLI.
+Las nueve migraciones se aplican en orden en el proyecto de Supabase; las dos Edge Functions se despliegan con la CLI.
 
 ## Cómo se actualiza el modelo
 

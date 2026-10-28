@@ -59,37 +59,41 @@ INSERT INTO public.pacientes (dni, nombre, apellido, fecha_nacimiento)
 VALUES ('99999999', 'Prueba', 'Aislamiento', '1990-01-01')
 ON CONFLICT (dni) DO NOTHING;
 
--- Una orden por sucursal (la sucursal se indica porque no vienen de un turno)
-INSERT INTO public.ordenes (nro_orden, paciente_id, sucursal_id)
-SELECT 'PRUEBA-S1', p.id, s.id
-FROM public.pacientes p, public.sucursales s
-WHERE p.dni = '99999999' AND s.prefijo = 'S1'
-ON CONFLICT (nro_orden) DO NOTHING;
+-- El médico es obligatorio en la orden (20261029_01_ordenes.sql)
+INSERT INTO public.medicos (nombre, apellido, matricula)
+VALUES ('Prueba', 'Aislamiento', 'PRUEBA-0')
+ON CONFLICT (matricula) DO NOTHING;
 
-INSERT INTO public.ordenes (nro_orden, paciente_id, sucursal_id)
-SELECT 'PRUEBA-S2', p.id, s.id
-FROM public.pacientes p, public.sucursales s
-WHERE p.dni = '99999999' AND s.prefijo = 'S2'
-ON CONFLICT (nro_orden) DO NOTHING;
+-- Una orden por sucursal (la sucursal se indica porque no vienen de un turno).
+-- El número lo pone la base: las órdenes de prueba se reconocen por observaciones.
+INSERT INTO public.ordenes (nro_orden, paciente_id, sucursal_id, medico_id, observaciones)
+SELECT '', p.id, s.id, m.id, 'PRUEBA-S1'
+FROM public.pacientes p, public.sucursales s, public.medicos m
+WHERE p.dni = '99999999' AND s.prefijo = 'S1' AND m.matricula = 'PRUEBA-0';
+
+INSERT INTO public.ordenes (nro_orden, paciente_id, sucursal_id, medico_id, observaciones)
+SELECT '', p.id, s.id, m.id, 'PRUEBA-S2'
+FROM public.pacientes p, public.sucursales s, public.medicos m
+WHERE p.dni = '99999999' AND s.prefijo = 'S2' AND m.matricula = 'PRUEBA-0';
 
 -- Un estudio tildado por orden (el primero del catálogo)
 INSERT INTO public.orden_analisis (orden_id, analisis_id)
 SELECT o.id, a.id
 FROM public.ordenes o, (SELECT id FROM public.analisis ORDER BY id LIMIT 1) a
-WHERE o.nro_orden IN ('PRUEBA-S1', 'PRUEBA-S2')
+WHERE o.observaciones IN ('PRUEBA-S1', 'PRUEBA-S2')
 ON CONFLICT (orden_id, analisis_id) DO NOTHING;
 
 -- Una muestra por orden
 INSERT INTO public.muestras (codigo_barras, orden_id, tipo_muestra_id)
 SELECT 'PRUEBA-M1', o.id, (SELECT id FROM public.tipos_muestra ORDER BY id LIMIT 1)
 FROM public.ordenes o
-WHERE o.nro_orden = 'PRUEBA-S1'
+WHERE o.observaciones = 'PRUEBA-S1'
 ON CONFLICT (codigo_barras) DO NOTHING;
 
 INSERT INTO public.muestras (codigo_barras, orden_id, tipo_muestra_id)
 SELECT 'PRUEBA-M2', o.id, (SELECT id FROM public.tipos_muestra ORDER BY id LIMIT 1)
 FROM public.ordenes o
-WHERE o.nro_orden = 'PRUEBA-S2'
+WHERE o.observaciones = 'PRUEBA-S2'
 ON CONFLICT (codigo_barras) DO NOTHING;
 
 -- Un resultado por estudio
@@ -97,7 +101,7 @@ INSERT INTO public.resultados (orden_analisis_id, valor_texto)
 SELECT oa.id, 'Negativo'
 FROM public.orden_analisis oa
 JOIN public.ordenes o ON o.id = oa.orden_id
-WHERE o.nro_orden IN ('PRUEBA-S1', 'PRUEBA-S2')
+WHERE o.observaciones IN ('PRUEBA-S1', 'PRUEBA-S2')
 ON CONFLICT (orden_analisis_id) DO NOTHING;
 
 -- Se guarda el id del resultado de S2 para consultarlo después como S1
@@ -109,7 +113,7 @@ SELECT set_config(
       FROM public.resultados r
       JOIN public.orden_analisis oa ON oa.id = r.orden_analisis_id
       JOIN public.ordenes o ON o.id = oa.orden_id
-      WHERE o.nro_orden = 'PRUEBA-S2'
+      WHERE o.observaciones = 'PRUEBA-S2'
       LIMIT 1
     ),
     ''
@@ -132,14 +136,14 @@ SELECT set_config(
 
 SET LOCAL ROLE authenticated;
 
-SELECT 'ordenes' AS tabla, nro_orden AS dato FROM public.ordenes WHERE nro_orden LIKE 'PRUEBA-%'
+SELECT 'ordenes' AS tabla, observaciones AS dato FROM public.ordenes WHERE observaciones LIKE 'PRUEBA-%'
 UNION ALL
 SELECT 'muestras', codigo_barras FROM public.muestras WHERE codigo_barras LIKE 'PRUEBA-%'
 ORDER BY 1, 2;
 -- Esperado: PRUEBA-S1 y PRUEBA-M1 (nada de S2)
 
 -- Consulta directa por el número de la otra sucursal: tiene que dar 0
-SELECT count(*) AS ordenes_de_s2 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S2';
+SELECT count(*) AS ordenes_de_s2 FROM public.ordenes WHERE observaciones = 'PRUEBA-S2';
 
 -- Consulta directa por el id del resultado de la otra sucursal: tiene que dar 0
 SELECT count(*) AS resultado_de_s2
@@ -148,7 +152,7 @@ WHERE id = nullif(current_setting('prueba.resultado_s2', true), '')::uuid;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S2') THEN
+  IF EXISTS (SELECT 1 FROM public.ordenes WHERE observaciones = 'PRUEBA-S2') THEN
     RAISE EXCEPTION 'FALLA: recepción de S1 ve una orden de S2';
   END IF;
   IF EXISTS (SELECT 1 FROM public.muestras WHERE codigo_barras = 'PRUEBA-M2') THEN
@@ -180,17 +184,17 @@ SELECT set_config(
 
 SET LOCAL ROLE authenticated;
 
-SELECT 'ordenes' AS tabla, nro_orden AS dato FROM public.ordenes WHERE nro_orden LIKE 'PRUEBA-%'
+SELECT 'ordenes' AS tabla, observaciones AS dato FROM public.ordenes WHERE observaciones LIKE 'PRUEBA-%'
 UNION ALL
 SELECT 'muestras', codigo_barras FROM public.muestras WHERE codigo_barras LIKE 'PRUEBA-%'
 ORDER BY 1, 2;
 -- Esperado: PRUEBA-S2 y PRUEBA-M2 (nada de S1)
 
-SELECT count(*) AS ordenes_de_s1 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S1';
+SELECT count(*) AS ordenes_de_s1 FROM public.ordenes WHERE observaciones = 'PRUEBA-S1';
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S1') THEN
+  IF EXISTS (SELECT 1 FROM public.ordenes WHERE observaciones = 'PRUEBA-S1') THEN
     RAISE EXCEPTION 'FALLA: recepción de S2 ve una orden de S1';
   END IF;
   RAISE NOTICE 'OK: recepción de S2 solo ve los datos de S2';
@@ -213,13 +217,13 @@ SELECT set_config(
 
 SET LOCAL ROLE authenticated;
 
-SELECT nro_orden FROM public.ordenes WHERE nro_orden LIKE 'PRUEBA-%' ORDER BY nro_orden;
+SELECT observaciones FROM public.ordenes WHERE observaciones LIKE 'PRUEBA-%' ORDER BY observaciones;
 -- Esperado: PRUEBA-S1 y PRUEBA-S2
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S1')
-     OR NOT EXISTS (SELECT 1 FROM public.ordenes WHERE nro_orden = 'PRUEBA-S2') THEN
+  IF NOT EXISTS (SELECT 1 FROM public.ordenes WHERE observaciones = 'PRUEBA-S1')
+     OR NOT EXISTS (SELECT 1 FROM public.ordenes WHERE observaciones = 'PRUEBA-S2') THEN
     RAISE EXCEPTION 'FALLA: el admin no ve las órdenes de las dos sucursales';
   END IF;
   RAISE NOTICE 'OK: el admin ve las dos sucursales';
