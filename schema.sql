@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-10-24T01:03:25.188Z
+-- Generated at: 2026-10-28T14:41:35.326Z
 
 CREATE SCHEMA "auth";
 
@@ -72,7 +72,8 @@ CREATE TABLE "personal" (
   "perfil_id" uuid PRIMARY KEY,
   "usuario" varchar UNIQUE NOT NULL,
   "matricula" varchar UNIQUE,
-  "cargo" varchar
+  "cargo" varchar,
+  "sucursal_id" bigint
 );
 
 CREATE TABLE "pacientes" (
@@ -149,6 +150,7 @@ CREATE TABLE "ordenes" (
   "paciente_id" uuid NOT NULL,
   "medico_id" bigint,
   "turno_id" uuid UNIQUE,
+  "sucursal_id" bigint,
   "obra_social_id" bigint,
   "estado" estado_orden NOT NULL DEFAULT 'abierta',
   "recibida_por" uuid,
@@ -280,6 +282,8 @@ COMMENT ON COLUMN "personal"."usuario" IS 'Ej: bioq_perez';
 
 COMMENT ON COLUMN "personal"."matricula" IS 'Matrícula profesional (MP). Obligatoria para bioquímicos.';
 
+COMMENT ON COLUMN "personal"."sucursal_id" IS 'Sucursal donde trabaja. Vacío = sin asignar: solo el admin puede trabajar así; el resto no ve datos de ninguna sucursal.';
+
 COMMENT ON COLUMN "pacientes"."perfil_id" IS 'Nulo si el paciente todavía no creó su cuenta en el portal';
 
 COMMENT ON COLUMN "pacientes"."email" IS 'Email real del paciente: lo carga en su primer ingreso y se usa para los avisos';
@@ -319,6 +323,8 @@ COMMENT ON COLUMN "turnos"."created_at" IS 'Hora de llegada';
 COMMENT ON TABLE "ordenes" IS 'Orden médica: qué análisis le pidieron al paciente.';
 
 COMMENT ON COLUMN "ordenes"."recibida_por" IS 'Personal de recepción que cargó la orden';
+
+COMMENT ON COLUMN "ordenes"."sucursal_id" IS 'Sucursal que emitió la orden. Se hereda del turno; si no viene de un turno, se indica al crearla.';
 
 COMMENT ON COLUMN "tipos_muestra"."nombre" IS 'Sangre entera, suero, orina, etc.';
 
@@ -374,6 +380,8 @@ ALTER TABLE "perfiles" ADD FOREIGN KEY ("id") REFERENCES "auth"."users" ("id") D
 
 ALTER TABLE "personal" ADD FOREIGN KEY ("perfil_id") REFERENCES "perfiles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
+ALTER TABLE "personal" ADD FOREIGN KEY ("sucursal_id") REFERENCES "sucursales" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
 ALTER TABLE "pacientes" ADD FOREIGN KEY ("perfil_id") REFERENCES "perfiles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "pacientes" ADD FOREIGN KEY ("obra_social_id") REFERENCES "obras_sociales" ("id") DEFERRABLE INITIALLY IMMEDIATE;
@@ -395,6 +403,8 @@ ALTER TABLE "ordenes" ADD FOREIGN KEY ("paciente_id") REFERENCES "pacientes" ("i
 ALTER TABLE "ordenes" ADD FOREIGN KEY ("medico_id") REFERENCES "medicos" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "ordenes" ADD FOREIGN KEY ("turno_id") REFERENCES "turnos" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "ordenes" ADD FOREIGN KEY ("sucursal_id") REFERENCES "sucursales" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "ordenes" ADD FOREIGN KEY ("obra_social_id") REFERENCES "obras_sociales" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
