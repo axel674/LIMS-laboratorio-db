@@ -218,12 +218,23 @@ Table analisis {
   nombre varchar [not null, note: 'Ej: Hematocrito, Glucemia']
   tipo_muestra_id bigint [not null, ref: > tipos_muestra.id]
   unidad varchar [note: 'Ej: %, mg/dL']
-  valor_ref_min numeric
+  valor_ref_min numeric [note: 'Rango general: se usa si no hay uno por sexo y edad en analisis_rangos']
   valor_ref_max numeric
   valor_ref_texto varchar [note: 'Para valores no numéricos, ej: Negativo']
   dias_demora int [note: 'Días estimados hasta el resultado']
   activo boolean [not null, default: true]
   Note: 'Cada estudio individual. Es lo que se tilda en recepción.'
+}
+
+Table analisis_rangos {
+  id bigint [pk, increment]
+  analisis_id bigint [not null, ref: > analisis.id]
+  sexo sexo [note: 'Vacío = para todos los sexos']
+  edad_desde smallint [not null, default: 0, note: 'Edad en años desde la que aplica (incluida)']
+  edad_hasta smallint [note: 'Edad en años hasta la que aplica (sin incluir). Vacío = sin límite']
+  valor_min numeric
+  valor_max numeric
+  Note: 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta.'
 }
 
 Table grupos_analisis {
@@ -300,8 +311,13 @@ Table resultados {
   valor_texto varchar
   fuera_de_rango boolean [not null, default: false]
   estado estado_resultado [not null, default: 'pendiente']
-  validado_por uuid [ref: ?>? perfiles.id, note: 'Bioquímico que carga y valida el resultado']
+  validado_por uuid [ref: ?>? perfiles.id, note: 'Bioquímico que valida el resultado']
   validado_en timestamptz
+  cargado_por uuid [ref: ?>? perfiles.id, note: 'Quién cargó (o corrigió por última vez) el valor: recepción o bioquímico']
+  cargado_en timestamptz
+  ref_min numeric [note: 'Rango con el que se comparó el valor (por sexo y edad del paciente)']
+  ref_max numeric
+  ref_texto varchar
 
   indexes {
     estado
