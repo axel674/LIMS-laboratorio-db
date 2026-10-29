@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2026-10-29T18:41:51.356Z
+-- Generated at: 2026-10-29T19:07:18.675Z
 
 CREATE SCHEMA "auth";
 
@@ -178,7 +178,12 @@ CREATE TABLE "analisis" (
   "valor_ref_max" numeric,
   "valor_ref_texto" varchar,
   "dias_demora" int,
-  "activo" boolean NOT NULL DEFAULT true
+  "activo" boolean NOT NULL DEFAULT true,
+  "padre_id" bigint,
+  "absoluto_de" bigint,
+  "absoluto_min" numeric,
+  "absoluto_max" numeric,
+  "absoluto_unidad" varchar
 );
 
 CREATE TABLE "analisis_rangos" (
@@ -231,6 +236,7 @@ CREATE TABLE "orden_analisis" (
   "analisis_id" bigint NOT NULL,
   "grupo_id" bigint,
   "muestra_id" uuid,
+  "padre_id" uuid,
   "cubierto" boolean NOT NULL DEFAULT true
 );
 
@@ -247,7 +253,10 @@ CREATE TABLE "resultados" (
   "cargado_en" timestamptz,
   "ref_min" numeric,
   "ref_max" numeric,
-  "ref_texto" varchar
+  "ref_texto" varchar,
+  "valor_absoluto" numeric,
+  "abs_ref_min" numeric,
+  "abs_ref_max" numeric
 );
 
 CREATE TABLE "informes" (
@@ -372,6 +381,12 @@ COMMENT ON COLUMN "analisis"."valor_ref_texto" IS 'Para valores no numéricos, e
 
 COMMENT ON COLUMN "analisis"."dias_demora" IS 'Días estimados hasta el resultado';
 
+COMMENT ON COLUMN "analisis"."padre_id" IS 'Estudio del que es componente (ej: Neutrófilos de la Fórmula leucocitaria). No se elige suelto';
+
+COMMENT ON COLUMN "analisis"."absoluto_de" IS 'Si se carga en %, estudio con el que se calcula el absoluto (ej: Glóbulos blancos)';
+
+COMMENT ON COLUMN "analisis"."absoluto_unidad" IS 'Ej: /mm³';
+
 COMMENT ON TABLE "analisis_rangos" IS 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta.';
 
 COMMENT ON COLUMN "analisis_rangos"."sexo" IS 'Vacío = para todos los sexos';
@@ -402,6 +417,8 @@ COMMENT ON COLUMN "orden_analisis"."grupo_id" IS 'Grupo desde el que se tildó. 
 
 COMMENT ON COLUMN "orden_analisis"."muestra_id" IS 'Tubo en el que se procesa este análisis';
 
+COMMENT ON COLUMN "orden_analisis"."padre_id" IS 'Estudio de la orden del que es componente. Lo agrega la base';
+
 COMMENT ON COLUMN "orden_analisis"."cubierto" IS 'Si lo cubre la obra social de la orden. Falso = se cobra como particular';
 
 COMMENT ON COLUMN "resultados"."validado_por" IS 'Bioquímico que valida el resultado';
@@ -409,6 +426,8 @@ COMMENT ON COLUMN "resultados"."validado_por" IS 'Bioquímico que valida el resu
 COMMENT ON COLUMN "resultados"."cargado_por" IS 'Quién cargó (o corrigió por última vez) el valor: recepción o bioquímico';
 
 COMMENT ON COLUMN "resultados"."ref_min" IS 'Rango con el que se comparó el valor (por sexo y edad del paciente)';
+
+COMMENT ON COLUMN "resultados"."valor_absoluto" IS 'Calculado por la base: % × el estudio base de la misma orden / 100';
 
 COMMENT ON COLUMN "informes"."firmado_por" IS 'Bioquímico matriculado';
 
@@ -462,6 +481,10 @@ ALTER TABLE "ordenes" ADD FOREIGN KEY ("anulada_por") REFERENCES "perfiles" ("id
 
 ALTER TABLE "analisis" ADD FOREIGN KEY ("tipo_muestra_id") REFERENCES "tipos_muestra" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
+ALTER TABLE "analisis" ADD FOREIGN KEY ("padre_id") REFERENCES "analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "analisis" ADD FOREIGN KEY ("absoluto_de") REFERENCES "analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
 ALTER TABLE "analisis_rangos" ADD FOREIGN KEY ("analisis_id") REFERENCES "analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "grupo_analisis_items" ADD FOREIGN KEY ("grupo_id") REFERENCES "grupos_analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
@@ -483,6 +506,8 @@ ALTER TABLE "orden_analisis" ADD FOREIGN KEY ("analisis_id") REFERENCES "analisi
 ALTER TABLE "orden_analisis" ADD FOREIGN KEY ("grupo_id") REFERENCES "grupos_analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "orden_analisis" ADD FOREIGN KEY ("muestra_id") REFERENCES "muestras" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE "orden_analisis" ADD FOREIGN KEY ("padre_id") REFERENCES "orden_analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "resultados" ADD FOREIGN KEY ("orden_analisis_id") REFERENCES "orden_analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
