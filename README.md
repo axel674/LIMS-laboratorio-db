@@ -24,12 +24,14 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261029_03_resultados.sql` | Carga de resultados y fuera de rango (LIMS-12 y LIMS-13): `analisis_rangos` (valores de referencia por sexo y edad, orientativos), `rango_de_estudio` / `rangos_de_orden`, reglas del resultado (número o texto según el estudio, marca fuera de rango, se corrige hasta que se valida, quién lo cargó), recepción también carga, la orden pasa a "en proceso" con el primer resultado y `guardar_resultados`. |
 | `migrations/20261029_04_componentes_y_llegada.sql` | Estudios con componentes: la fórmula leucocitaria se informa con 5 valores en % (con su rango) y la base calcula el absoluto con los glóbulos blancos de la orden y lo recalcula si cambian; al agregar el estudio a una orden se agregan sus componentes. Una orden cargada antes de la llegada del paciente se une sola al turno cuando se registra su llegada ese día. |
 | `migrations/20261030_01_validacion_orden.sql` | Validación final del bioquímico y cierre de la orden (LIMS-14): la función `validar_orden` guarda los valores, valida todos los resultados con quién y cuándo, pasa la orden a "completa" y crea el informe en borrador, todo o nada. Una orden validada no se puede modificar. |
+| `migrations/20261030_02_informe_pdf.sql` | Informe PDF (LIMS-15): bucket privado `informes` (un PDF por orden en `<paciente_id>/<orden_id>.pdf`) con sus políticas (el paciente baja solo los suyos publicados, el personal los de su sucursal, solo el bioquímico sube), la función `publicar_informe` (deja el informe firmado con el SHA-256 del archivo, publicado, y la orden informada) y un trigger que impide modificar un informe publicado. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
+| `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 
-Las trece migraciones se aplican en orden en el proyecto de Supabase; las dos Edge Functions se despliegan con la CLI.
+Las catorce migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Cómo se actualiza el modelo
 
