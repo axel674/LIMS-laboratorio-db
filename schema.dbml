@@ -185,16 +185,20 @@ Table turnos {
 
 Table ordenes {
   id uuid [pk, default: `gen_random_uuid()`]
-  nro_orden varchar [unique, not null]
+  nro_orden varchar [unique, not null, note: 'Lo genera la base: prefijo de la sucursal + año + correlativo (ej: S1-2026-000123)']
   paciente_id uuid [not null, ref: > pacientes.id]
-  medico_id bigint [ref: ?>? medicos.id]
-  turno_id uuid [unique, ref: - turnos.id]
+  medico_id bigint [not null, ref: > medicos.id]
+  turno_id uuid [ref: ?>? turnos.id, note: 'Visita en la que se recibió. Un turno puede tener varias órdenes (ej: sangre en una y orina en otra)']
   sucursal_id bigint [ref: ?>? sucursales.id, note: 'Sucursal que emitió la orden. Se hereda del turno; si no viene de un turno, se indica al crearla.']
-  obra_social_id bigint [ref: ?>? obras_sociales.id]
+  obra_social_id bigint [ref: ?>? obras_sociales.id, note: 'Obra social de esta orden (se propone la del paciente). Vacío = particular']
   estado estado_orden [not null, default: 'abierta']
+  fecha_orden date [not null, note: 'Fecha en que el médico firmó la orden (no puede ser futura)']
   recibida_por uuid [ref: ?>? perfiles.id, note: 'Personal de recepción que cargó la orden']
   fecha_recepcion timestamptz [not null, default: `now()`]
   observaciones text
+  motivo_anulacion text [note: 'Obligatorio cuando la orden se anula']
+  anulada_por uuid [ref: ?>? perfiles.id]
+  anulada_en timestamptz
   Note: 'Orden médica: qué análisis le pidieron al paciente.'
 }
 
@@ -224,10 +228,10 @@ Table analisis {
 
 Table grupos_analisis {
   id bigint [pk, increment]
-  codigo varchar [unique, not null]
-  nombre varchar [not null, note: 'Ej: Hemograma completo, Perfil lipídico']
+  codigo varchar [unique, not null, note: 'Ej: SANGRE. De 2 a 20 letras mayúsculas, números, guion o guion bajo']
+  nombre varchar [unique, not null, note: 'Ej: Sangre completa, Hepatograma']
   activo boolean [not null, default: true]
-  Note: 'Atajo de recepción: al tildar el grupo se tildan todos sus estudios.'
+  Note: 'Atajo de recepción: al elegir el grupo en la orden se agregan todos sus estudios. No se borran: se desactivan.'
 }
 
 Table grupo_analisis_items {
@@ -277,6 +281,7 @@ Table orden_analisis {
   analisis_id bigint [not null, ref: > analisis.id]
   grupo_id bigint [ref: ?>? grupos_analisis.id, note: 'Grupo desde el que se tildó. Nulo si se tildó suelto']
   muestra_id uuid [ref: ?>? muestras.id, note: 'Tubo en el que se procesa este análisis']
+  cubierto boolean [not null, default: true, note: 'Si lo cubre la obra social de la orden. Falso = se cobra como particular']
 
   indexes {
     (orden_id, analisis_id) [unique, note: 'Un estudio no se repite aunque esté en dos grupos tildados']
