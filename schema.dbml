@@ -144,6 +144,22 @@ Table obras_sociales {
   activa boolean [not null, default: true]
 }
 
+Table valores_ub {
+  id bigint [pk, increment]
+  obra_social_id bigint [ref: ?>? obras_sociales.id, note: 'Nulo = valor particular']
+  valor_ub numeric [not null, note: 'Pesos por unidad bioquímica (NBU). Mayor que 0']
+  coseguro_pct numeric [not null, default: 0, note: '% del valor del estudio que paga el paciente (0 a 100). El particular no tiene']
+  vigente_desde date [not null, note: 'Desde qué día rige. Los anteriores quedan como historial']
+  observaciones varchar
+  creado_por uuid [ref: ?>? perfiles.id]
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (obra_social_id, vigente_desde) [unique, note: 'Un valor por día y por obra social (NULLS NOT DISTINCT)']
+  }
+  Note: 'Valor de la unidad bioquímica por obra social, con su coseguro y desde cuándo rige.'
+}
+
 Table medicos {
   id bigint [pk, increment]
   nombre varchar [not null]
@@ -228,6 +244,8 @@ Table analisis {
   absoluto_min numeric
   absoluto_max numeric
   absoluto_unidad varchar [note: 'Ej: /mm³']
+  ub numeric [note: 'Unidades bioquímicas (NBU) que vale. Nulo = sin arancel. Los componentes no se cobran aparte']
+  codigo_nbu varchar [note: 'Código de la práctica en el Nomenclador Bioquímico Único']
   Note: 'Cada estudio individual. Es lo que se tilda en recepción.'
 }
 
@@ -299,6 +317,10 @@ Table orden_analisis {
   muestra_id uuid [ref: ?>? muestras.id, note: 'Tubo en el que se procesa este análisis']
   padre_id uuid [ref: ?>? orden_analisis.id, note: 'Estudio de la orden del que es componente. Lo agrega la base']
   cubierto boolean [not null, default: true, note: 'Si lo cubre la obra social de la orden. Falso = se cobra como particular']
+  ub numeric [note: 'Precio guardado al cargarlo (lo calcula la base): UB del estudio']
+  valor_ub numeric [note: 'Valor de la UB que regía ese día para la obra social (o el particular)']
+  importe_obra_social numeric [note: 'Lo que se le factura a la obra social']
+  importe_paciente numeric [note: 'Lo que paga el paciente: el coseguro, o todo si es particular o no cubierto']
 
   indexes {
     (orden_id, analisis_id) [unique, note: 'Un estudio no se repite aunque esté en dos grupos tildados']
@@ -373,6 +395,7 @@ TableGroup usuarios_y_personas [color: #1E3A5F] {
   personal
   pacientes
   obras_sociales
+  valores_ub
   medicos
 }
 
