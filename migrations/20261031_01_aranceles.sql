@@ -184,10 +184,10 @@ FROM (VALUES
 WHERE a.codigo = v.codigo;
 
 -- Valor de la UB y coseguro de ejemplo, vigentes desde el 1/10/2026
-INSERT INTO public.valores_ub (obra_social_id, valor_ub, coseguro_pct, vigente_desde, observaciones, creado_por)
-SELECT NULL, 1800, 0, DATE '2026-10-01', 'Valor de ejemplo: reemplazar por el real', NULL
+INSERT INTO public.valores_ub (obra_social_id, valor_ub, coseguro_pct, vigente_desde, observaciones)
+SELECT NULL::bigint, 1800, 0, DATE '2026-10-01', 'Valor de ejemplo: reemplazar por el real'
 UNION ALL
-SELECT os.id, v.valor, v.coseguro, DATE '2026-10-01', 'Valor de ejemplo: reemplazar por el real', NULL
+SELECT os.id, v.valor, v.coseguro, DATE '2026-10-01', 'Valor de ejemplo: reemplazar por el real'
 FROM (VALUES
   ('PAMI', 950, 0), ('OSDE', 1500, 10), ('Swiss Medical', 1500, 10), ('Galeno', 1400, 10),
   ('Medifé', 1300, 20), ('Sancor Salud', 1300, 20), ('OSECAC', 1100, 30), ('OSPRERA', 1100, 30),
