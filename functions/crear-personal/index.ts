@@ -4,7 +4,8 @@
 // 1. Crea la cuenta en Supabase Auth con un email interno <usuario>@personal.lims.local
 //    y una contraseña provisoria aleatoria.
 // 2. Crea su perfil (rol de personal, debe_cambiar_password = true).
-// 3. Crea su fila en personal (usuario, matrícula y cargo).
+// 3. Crea su fila en personal (usuario, matrícula, cargo y sucursal donde trabaja).
+//    La sucursal es opcional: el admin ve todas, y si falta se asigna después.
 // Devuelve la contraseña provisoria UNA sola vez, para entregársela a la persona.
 // En su primer ingreso el sistema le exige elegir una contraseña propia
 // (ver completar_primer_ingreso_personal en la migración 20261013_01).
@@ -79,6 +80,9 @@ Deno.serve(async (req) => {
   const telefono = String(datos.telefono ?? '').trim() || null;
   const matricula = String(datos.matricula ?? '').trim() || null;
   const cargo = String(datos.cargo ?? '').trim() || null;
+  const sucursalId = datos.sucursal_id === undefined || datos.sucursal_id === null || datos.sucursal_id === ''
+    ? null
+    : Number(datos.sucursal_id);
 
   if (!/^[a-z0-9._-]{3,32}$/.test(usuario)) {
     return responder(
@@ -90,6 +94,12 @@ Deno.serve(async (req) => {
   if (!ROLES_PERSONAL.includes(rol)) return responder({ error: 'El rol no es válido' }, 400);
   if (rol === 'bioquimico' && !matricula) {
     return responder({ error: 'La matrícula es obligatoria para un bioquímico' }, 400);
+  }
+
+  if (sucursalId !== null) {
+    if (!Number.isInteger(sucursalId)) return responder({ error: 'La sucursal no es válida' }, 400);
+    const { data: sucursal } = await admin.from('sucursales').select('id').eq('id', sucursalId).maybeSingle();
+    if (!sucursal) return responder({ error: 'La sucursal elegida no existe' }, 400);
   }
 
   const { data: usuarioExistente } = await admin
@@ -140,6 +150,7 @@ Deno.serve(async (req) => {
     usuario,
     matricula,
     cargo,
+    sucursal_id: sucursalId,
   });
   if (errorPersonal) return deshacer(`No se pudo guardar los datos del personal: ${errorPersonal.message}`);
 
