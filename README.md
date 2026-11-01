@@ -25,13 +25,16 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261029_04_componentes_y_llegada.sql` | Estudios con componentes: la fórmula leucocitaria se informa con 5 valores en % (con su rango) y la base calcula el absoluto con los glóbulos blancos de la orden y lo recalcula si cambian; al agregar el estudio a una orden se agregan sus componentes. Una orden cargada antes de la llegada del paciente se une sola al turno cuando se registra su llegada ese día. |
 | `migrations/20261030_01_validacion_orden.sql` | Validación final del bioquímico y cierre de la orden (LIMS-14): la función `validar_orden` guarda los valores, valida todos los resultados con quién y cuándo, pasa la orden a "completa" y crea el informe en borrador, todo o nada. Una orden validada no se puede modificar. |
 | `migrations/20261030_02_informe_pdf.sql` | Informe PDF (LIMS-15): bucket privado `informes` (un PDF por orden en `<paciente_id>/<orden_id>.pdf`) con sus políticas (el paciente baja solo los suyos publicados, el personal los de su sucursal, solo el bioquímico sube), la función `publicar_informe` (deja el informe firmado con el SHA-256 del archivo, publicado, y la orden informada) y un trigger que impide modificar un informe publicado. |
+| `migrations/20261031_01_aranceles.sql` | Aranceles (LIMS-32), según el Nomenclador Bioquímico Único: unidades bioquímicas (`ub`) y código NBU de cada estudio; tabla `valores_ub` (valor de la UB del particular y de cada obra social, con su coseguro en % y desde cuándo rige); cada estudio de la orden guarda su precio al cargarse (`importe_paciente` e `importe_obra_social`) y se recalcula si cambia la obra social de una orden abierta. Carga valores de ejemplo, a reemplazar por los reales. |
+| `migrations/20261101_01_rangos_sin_superponer.sql` | Rangos por sexo y edad editables desde el panel (LIMS-29): dos rangos del mismo estudio y el mismo sexo no pueden cubrir la misma edad (un rango para "todos" sí convive con uno de un sexo, porque se elige primero el del sexo). |
+| `migrations/20261101_02_mensaje_rango.sql` | El aviso de rango superpuesto muestra las edades como el panel ("18 años o más", "1 a 17 años"). |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 
-Las catorce migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las diecisiete migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Cómo se actualiza el modelo
 
