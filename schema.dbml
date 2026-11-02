@@ -295,7 +295,7 @@ Table muestras {
   motivo_rechazo text [note: 'Obligatorio cuando el estado es rechazada']
 
   indexes {
-    (turno_id, tipo_muestra_id) [unique, note: 'Un tubo por tipo de muestra en cada visita']
+    (turno_id, tipo_muestra_id) [unique, note: 'Un tubo activo por tipo de muestra en cada visita (índice parcial: sin contar los rechazados, que se pueden volver a extraer)']
   }
   Note: 'Cada tubo de una visita del paciente, uno por tipo de muestra. Se crean con rotular_muestras. Estados internos: extraida → procesada o rechazada.'
 }
