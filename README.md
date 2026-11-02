@@ -31,6 +31,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261101_03_portal_paciente.sql` | Portal del paciente (LIMS-17): deja que el paciente lea el médico de sus propias órdenes, para que el portal pueda mostrar quién pidió los estudios. Las órdenes y los informes publicados ya los veía por las políticas de RLS. |
 | `migrations/20261102_01_acido_urico.sql` | Da de alta el ácido úrico (URIC) con los datos que tiene en Supabase (unidad, rango general, UB, su lugar en Sangre completa y sus rangos por sexo y edad), porque ninguna migración lo creaba. En Supabase no cambia nada. |
 | `migrations/20261102_02_orden_sin_medico.sql` | Orden sin pedido médico (LIMS-33): el médico deja de ser obligatorio y una orden sin médico no puede tener obra social, así que se cobra a valor particular. |
+| `migrations/20261102_03_rotulado_muestras.sql` | Rotulado de muestras en extracción (LIMS-28): número de muestra por paciente, correlativo del día por sucursal (`turnos.numero_muestra`, M1, M2…); la muestra pasa a pertenecer al turno (un tubo por tipo de muestra, compartido por todas las órdenes de la visita). Funciones `rotular_muestras` (asigna el número, crea los tubos y une cada estudio con su tubo) y `rechazar_muestra` (tubo no obtenido o rechazado, con motivo). |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
@@ -40,7 +41,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veinte migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veintiuna migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Revisión de los valores de referencia (LIMS-30)
 
