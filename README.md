@@ -29,13 +29,38 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261101_01_rangos_sin_superponer.sql` | Rangos por sexo y edad editables desde el panel (LIMS-29): dos rangos del mismo estudio y el mismo sexo no pueden cubrir la misma edad (un rango para "todos" sí convive con uno de un sexo, porque se elige primero el del sexo). |
 | `migrations/20261101_02_mensaje_rango.sql` | El aviso de rango superpuesto muestra las edades como el panel ("18 años o más", "1 a 17 años"). |
 | `migrations/20261101_03_portal_paciente.sql` | Portal del paciente (LIMS-17): deja que el paciente lea el médico de sus propias órdenes, para que el portal pueda mostrar quién pidió los estudios. Las órdenes y los informes publicados ya los veía por las políticas de RLS. |
+| `migrations/20261102_01_acido_urico.sql` | Da de alta el ácido úrico (URIC) con los datos que tiene en Supabase (unidad, rango general, UB, su lugar en Sangre completa y sus rangos por sexo y edad), porque ninguna migración lo creaba. En Supabase no cambia nada. |
+| `migrations/20261102_02_orden_sin_medico.sql` | Orden sin pedido médico (LIMS-33): el médico deja de ser obligatorio y una orden sin médico no puede tener obra social, así que se cobra a valor particular. |
+| `migrations/20261102_03_rotulado_muestras.sql` | Rotulado de muestras en extracción (LIMS-28): número de muestra por paciente, correlativo del día por sucursal (`turnos.numero_muestra`, M1, M2…); la muestra pasa a pertenecer al turno (un tubo por tipo de muestra, compartido por todas las órdenes de la visita). Funciones `rotular_muestras` (asigna el número, crea los tubos y une cada estudio con su tubo) y `rechazar_muestra` (tubo no obtenido o rechazado, con motivo). |
+| `migrations/20261102_04_reextraccion_muestras.sql` | Volver a extraer un tubo rechazado (LIMS-28): la regla de un tubo por tipo de muestra cuenta solo los no rechazados, y `rotular_muestras` crea el tubo nuevo (mismo número, con el intento al final: `S1-20261102-M1-3-2`) y le pasa los estudios del rechazado. |
+| `migrations/20261102_05_cobros.sql` | Cobros por orden (LIMS-19): tabla `cobros` (monto, medio de pago, quién y cuándo, sucursal de la orden), se puede pagar en partes sin pasar del total que paga el paciente (suma de `importe_paciente`) y un cobro se anula con motivo, no se borra. Funciones `registrar_cobro` y `anular_cobro`; una orden con cobros vigentes no se puede anular ni cambiar sus estudios o su cobertura. |
+| `migrations/20261102_06_caja_diaria.sql` | Caja diaria por sucursal (LIMS-20): tabla `cajas` (una por sucursal y día, con el efectivo inicial y el contado al cerrar). Funciones `abrir_caja`, `cerrar_caja`, `reabrir_caja` (solo el admin, con motivo) y `resumen_caja` (lo cobrado por medio de pago, lo esperado en efectivo y la diferencia). Para cobrar hay que tener abierta la caja del día; con la caja cerrada no se anulan cobros de ese día. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
+| `pruebas/orden_sin_medico.sql` | Prueba de la orden sin pedido médico: se carga sin médico y particular, se rechaza con obra social y con médico sigue aceptando obra social. Termina en `ROLLBACK`: no deja datos. |
+| `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
+| `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las dieciocho migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veinticuatro migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+
+## Revisión de los valores de referencia (LIMS-30)
+
+Los rangos que se cargaron en LIMS-13 son orientativos: los tiene que confirmar el bioquímico, porque cada laboratorio usa los de su equipo y su método.
+
+1. Correr `consultas/exportar_rangos.sql` en el SQL Editor y descargar el CSV: es la foto real de la base (puede tener cambios hechos desde el panel). Si no hay acceso, `consultas/rangos_referencia.csv` es la misma lista tal como queda después de las migraciones.
+2. Anotar las correcciones en la última columna.
+3. Cargarlas desde el panel, sin migración: **Análisis** (unidad, rango general y texto) y **Rangos** (por sexo y edad).
+
+Lo que conviene preguntarle:
+
+- **Ácido úrico (URIC):** en Supabase está completo (mg/dL, general 2,5 – 7 y tres rangos por sexo y edad), pero se había cargado desde el panel y ninguna migración lo creaba. Lo crea `20261102_01_acido_urico.sql` con esos mismos valores: confirmarlos como los demás.
+- **Menores de 1 año:** no tienen rango propio y caen al general del catálogo, porque los pediátricos van de 1 a 17 años.
+- **Estudios sin rango por sexo y edad:** usan el general del catálogo (plaquetas, glucemia, uremia, colesterol, triglicéridos, TSH, TP, HCM, CHCM, LDL, bilirrubinas, orina y sangre oculta).
+- **Fórmula leucocitaria:** solo cambian los neutrófilos y los linfocitos en los chicos; los absolutos se calculan con los glóbulos blancos de la orden.
+- **Unidades:** revisar sobre todo `mm/1ª hora` en la eritrosedimentación y que los absolutos de la fórmula vayan en `/mm³`.
 
 ## Cómo se actualiza el modelo
 
