@@ -69,6 +69,13 @@ Enum sexo {
   X
 }
 
+Enum medio_pago {
+  efectivo
+  debito
+  credito
+  transferencia
+}
+
 // ─────────────────────────────────────────────
 // Usuarios y personas
 // ─────────────────────────────────────────────
@@ -374,6 +381,30 @@ Table informes {
 }
 
 // ─────────────────────────────────────────────
+// Cobranzas
+// ─────────────────────────────────────────────
+
+Table cobros {
+  id bigint [pk, increment]
+  orden_id uuid [not null, ref: > ordenes.id]
+  sucursal_id bigint [not null, ref: > sucursales.id, note: 'La de la orden: la caja diaria suma los cobros de cada sucursal']
+  monto numeric [not null, note: 'Mayor a cero. La suma de los cobros vigentes no pasa de lo que paga el paciente por la orden']
+  medio_pago medio_pago [not null]
+  observaciones varchar
+  cobrado_por uuid [not null, ref: > perfiles.id]
+  cobrado_en timestamptz [not null, default: `now()`]
+  motivo_anulacion text [note: 'Obligatorio cuando el cobro se anula. Un cobro anulado no cuenta']
+  anulado_por uuid [ref: ?>? perfiles.id]
+  anulado_en timestamptz
+
+  indexes {
+    orden_id
+    (sucursal_id, cobrado_en)
+  }
+  Note: 'Lo que pagó el paciente por una orden (se puede pagar en partes). Se registra y se anula solo con registrar_cobro y anular_cobro.'
+}
+
+// ─────────────────────────────────────────────
 // Notificaciones
 // ─────────────────────────────────────────────
 
@@ -428,6 +459,10 @@ TableGroup muestras_y_trazabilidad [color: #E17055] {
 TableGroup resultados_e_informes [color: #00B894] {
   resultados
   informes
+}
+
+TableGroup cobranzas [color: #2D9CDB] {
+  cobros
 }
 
 TableGroup avisos [color: #FDCB6E] {
