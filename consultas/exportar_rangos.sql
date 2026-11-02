@@ -22,10 +22,13 @@ SELECT
   a.valor_ref_min AS "General desde",
   a.valor_ref_max AS "General hasta",
   a.valor_ref_texto AS "General texto",
-  CASE r.sexo
-    WHEN 'F' THEN 'Femenino'
-    WHEN 'M' THEN 'Masculino'
-    WHEN 'X' THEN 'X'
+  -- Sexo vacío en un rango = vale para los dos ("Todos", como en la pantalla de rangos)
+  CASE
+    WHEN r.id IS NULL THEN NULL
+    WHEN r.sexo IS NULL THEN 'Todos'
+    WHEN r.sexo = 'F' THEN 'Femenino'
+    WHEN r.sexo = 'M' THEN 'Masculino'
+    ELSE 'X'
   END AS "Sexo",
   CASE
     WHEN r.id IS NULL THEN NULL

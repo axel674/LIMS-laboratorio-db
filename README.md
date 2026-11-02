@@ -29,6 +29,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261101_01_rangos_sin_superponer.sql` | Rangos por sexo y edad editables desde el panel (LIMS-29): dos rangos del mismo estudio y el mismo sexo no pueden cubrir la misma edad (un rango para "todos" sí convive con uno de un sexo, porque se elige primero el del sexo). |
 | `migrations/20261101_02_mensaje_rango.sql` | El aviso de rango superpuesto muestra las edades como el panel ("18 años o más", "1 a 17 años"). |
 | `migrations/20261101_03_portal_paciente.sql` | Portal del paciente (LIMS-17): deja que el paciente lea el médico de sus propias órdenes, para que el portal pueda mostrar quién pidió los estudios. Las órdenes y los informes publicados ya los veía por las políticas de RLS. |
+| `migrations/20261102_01_acido_urico.sql` | Da de alta el ácido úrico (URIC) con los datos que tiene en Supabase (unidad, rango general, UB, su lugar en Sangre completa y sus rangos por sexo y edad), porque ninguna migración lo creaba. En Supabase no cambia nada. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
@@ -37,7 +38,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las dieciocho migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las diecinueve migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Revisión de los valores de referencia (LIMS-30)
 
@@ -49,7 +50,7 @@ Los rangos que se cargaron en LIMS-13 son orientativos: los tiene que confirmar 
 
 Lo que conviene preguntarle:
 
-- **Ácido úrico (URIC):** tiene rangos y está en el grupo Sangre completa, pero el estudio nunca se dio de alta (`20261029_02` lo agregó al grupo y `20261029_03` a los rangos, sin crearlo en `analisis`). Hoy no se puede pedir y sus rangos no se cargaron: falta su unidad y su rango general.
+- **Ácido úrico (URIC):** en Supabase está completo (mg/dL, general 2,5 – 7 y tres rangos por sexo y edad), pero se había cargado desde el panel y ninguna migración lo creaba. Lo crea `20261102_01_acido_urico.sql` con esos mismos valores: confirmarlos como los demás.
 - **Menores de 1 año:** no tienen rango propio y caen al general del catálogo, porque los pediátricos van de 1 a 17 años.
 - **Estudios sin rango por sexo y edad:** usan el general del catálogo (plaquetas, glucemia, uremia, colesterol, triglicéridos, TSH, TP, HCM, CHCM, LDL, bilirrubinas, orina y sangre oculta).
 - **Fórmula leucocitaria:** solo cambian los neutrófilos y los linfocitos en los chicos; los absolutos se calculan con los glóbulos blancos de la orden.
