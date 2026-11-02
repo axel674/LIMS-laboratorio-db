@@ -34,8 +34,26 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
+| `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
+| `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
 Las dieciocho migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+
+## Revisión de los valores de referencia (LIMS-30)
+
+Los rangos que se cargaron en LIMS-13 son orientativos: los tiene que confirmar el bioquímico, porque cada laboratorio usa los de su equipo y su método.
+
+1. Correr `consultas/exportar_rangos.sql` en el SQL Editor y descargar el CSV: es la foto real de la base (puede tener cambios hechos desde el panel). Si no hay acceso, `consultas/rangos_referencia.csv` es la misma lista tal como queda después de las migraciones.
+2. Anotar las correcciones en la última columna.
+3. Cargarlas desde el panel, sin migración: **Análisis** (unidad, rango general y texto) y **Rangos** (por sexo y edad).
+
+Lo que conviene preguntarle:
+
+- **Ácido úrico (URIC):** tiene rangos y está en el grupo Sangre completa, pero el estudio nunca se dio de alta (`20261029_02` lo agregó al grupo y `20261029_03` a los rangos, sin crearlo en `analisis`). Hoy no se puede pedir y sus rangos no se cargaron: falta su unidad y su rango general.
+- **Menores de 1 año:** no tienen rango propio y caen al general del catálogo, porque los pediátricos van de 1 a 17 años.
+- **Estudios sin rango por sexo y edad:** usan el general del catálogo (plaquetas, glucemia, uremia, colesterol, triglicéridos, TSH, TP, HCM, CHCM, LDL, bilirrubinas, orina y sangre oculta).
+- **Fórmula leucocitaria:** solo cambian los neutrófilos y los linfocitos en los chicos; los absolutos se calculan con los glóbulos blancos de la orden.
+- **Unidades:** revisar sobre todo `mm/1ª hora` en la eritrosedimentación y que los absolutos de la fórmula vayan en `/mm³`.
 
 ## Cómo se actualiza el modelo
 
