@@ -401,7 +401,28 @@ Table cobros {
     orden_id
     (sucursal_id, cobrado_en)
   }
-  Note: 'Lo que pagó el paciente por una orden (se puede pagar en partes). Se registra y se anula solo con registrar_cobro y anular_cobro.'
+  Note: 'Lo que pagó el paciente por una orden (se puede pagar en partes). Se registra y se anula solo con registrar_cobro y anular_cobro. Para cobrar, la caja del día de la sucursal tiene que estar abierta; con la caja cerrada no se anulan cobros de ese día.'
+}
+
+Table cajas {
+  id bigint [pk, increment]
+  sucursal_id bigint [not null, ref: > sucursales.id]
+  fecha date [not null, note: 'Día de la caja (hora de Tucumán)']
+  monto_inicial numeric [not null, note: 'Efectivo con el que se abrió']
+  abierta_por uuid [not null, ref: > perfiles.id]
+  abierta_en timestamptz [not null, default: `now()`]
+  monto_contado numeric [note: 'Efectivo contado al cerrar. Se compara con el inicial más los cobros en efectivo del día']
+  observaciones_cierre varchar
+  cerrada_por uuid [ref: ?>? perfiles.id]
+  cerrada_en timestamptz [note: 'Vacío = la caja está abierta']
+  motivo_reapertura text [note: 'Por qué el admin la reabrió (la última vez)']
+  reabierta_por uuid [ref: ?>? perfiles.id]
+  reabierta_en timestamptz
+
+  indexes {
+    (sucursal_id, fecha) [unique, note: 'Una caja por sucursal y por día']
+  }
+  Note: 'Caja diaria de cada sucursal. Se modifica solo con abrir_caja, cerrar_caja (recepción y admin) y reabrir_caja (admin, con motivo).'
 }
 
 // ─────────────────────────────────────────────
@@ -463,6 +484,7 @@ TableGroup resultados_e_informes [color: #00B894] {
 
 TableGroup cobranzas [color: #2D9CDB] {
   cobros
+  cajas
 }
 
 TableGroup avisos [color: #FDCB6E] {
