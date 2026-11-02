@@ -299,7 +299,8 @@ export async function armarPdf(orden: any, estudios: Estudio[], firmante: { nomb
     ['Cobertura', orden.obras_sociales?.nombre ?? 'Particular'],
   ];
   const derecha: [string, string][] = [
-    ['Médico', orden.medicos ? `${orden.medicos.apellido}, ${orden.medicos.nombre}` : '—'],
+    // Sin médico: el paciente vino por su cuenta (LIMS-33)
+    ['Médico', orden.medicos ? `${orden.medicos.apellido}, ${orden.medicos.nombre}` : 'Sin pedido médico'],
     ['Matrícula', orden.medicos?.matricula ?? '—'],
     ['Fecha de la orden', fecha(orden.fecha_orden)],
     ['Recibida', `${fecha(orden.fecha_recepcion)} ${hora(orden.fecha_recepcion)} hs`],
