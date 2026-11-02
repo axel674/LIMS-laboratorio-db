@@ -8,7 +8,8 @@
 --   orden está pagada cuando lo cobrado cubre el total; no es un estado nuevo de
 --   la orden, sale de sumar sus cobros.
 -- - Un cobro mal cargado no se borra: se anula con motivo, como las órdenes.
--- - Una orden con cobros vigentes no se puede anular: primero se anulan los cobros.
+-- - Una orden con cobros vigentes no se puede anular, ni cambiar sus estudios o su
+--   cobertura si eso cambia lo que paga el paciente: primero se anulan los cobros.
 -- - Recepción y el admin registran y anulan; el personal de la sucursal los ve.
 --   La caja diaria (LIMS-20) va a sumar estos cobros por sucursal y por día.
 --
@@ -179,6 +180,39 @@ $$;
 CREATE TRIGGER ordenes_cobros_al_anular
   BEFORE UPDATE OF estado ON public.ordenes
   FOR EACH ROW EXECUTE FUNCTION privado.controlar_anulacion_con_cobros();
+
+-- 7. Una orden cobrada no cambia lo que se cobra
+-- Si se agregan o quitan estudios, o cambia la cobertura y con ella el importe, lo
+-- cobrado dejaría de coincidir con el total. AFTER: con modificar_orden, los estudios
+-- que no cambian pasan por INSERT ... ON CONFLICT sin insertarse, y no deben frenarlo
+-- (así se pueden corregir el médico, la fecha o las observaciones).
+
+CREATE FUNCTION privado.controlar_estudios_con_cobros()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  v_orden_id uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.orden_id ELSE NEW.orden_id END;
+  v_nro varchar;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.cobros WHERE orden_id = v_orden_id AND anulado_en IS NULL) THEN
+    SELECT nro_orden INTO v_nro FROM public.ordenes WHERE id = v_orden_id;
+    RAISE EXCEPTION 'La orden % tiene cobros: anúlelos antes de cambiar sus estudios o su cobertura', v_nro
+      USING ERRCODE = '22023';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER orden_analisis_cobros_insertar_quitar
+  AFTER INSERT OR DELETE ON public.orden_analisis
+  FOR EACH ROW EXECUTE FUNCTION privado.controlar_estudios_con_cobros();
+
+CREATE TRIGGER orden_analisis_cobros_importe
+  AFTER UPDATE OF cubierto, importe_paciente ON public.orden_analisis
+  FOR EACH ROW
+  WHEN (OLD.importe_paciente IS DISTINCT FROM NEW.importe_paciente OR OLD.cubierto IS DISTINCT FROM NEW.cubierto)
+  EXECUTE FUNCTION privado.controlar_estudios_con_cobros();
 
 -- Las funciones del panel solo las usa el personal logueado
 REVOKE ALL ON FUNCTION public.registrar_cobro(uuid, numeric, public.medio_pago, text) FROM PUBLIC, anon;

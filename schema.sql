@@ -153,6 +153,7 @@ CREATE TABLE "turnos" (
   "tipo" tipo_extraccion NOT NULL DEFAULT 'ambulatoria',
   "estado" estado_atencion NOT NULL DEFAULT 'en_espera',
   "box" smallint,
+  "numero_muestra" int,
   "observaciones" text,
   "registrado_por" uuid,
   "llamado_por" uuid,
@@ -166,7 +167,7 @@ CREATE TABLE "ordenes" (
   "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid()),
   "nro_orden" varchar UNIQUE NOT NULL,
   "paciente_id" uuid NOT NULL,
-  "medico_id" bigint NOT NULL,
+  "medico_id" bigint,
   "turno_id" uuid,
   "sucursal_id" bigint,
   "obra_social_id" bigint,
@@ -233,7 +234,7 @@ CREATE TABLE "grupo_analisis_items" (
 CREATE TABLE "muestras" (
   "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid()),
   "codigo_barras" varchar UNIQUE NOT NULL,
-  "orden_id" uuid NOT NULL,
+  "turno_id" uuid NOT NULL,
   "tipo_muestra_id" bigint NOT NULL,
   "estado" estado_muestra NOT NULL DEFAULT 'extraida',
   "fecha_extraccion" timestamptz NOT NULL DEFAULT (now()),
@@ -328,9 +329,13 @@ CREATE UNIQUE INDEX ON "valores_ub" ("obra_social_id", "vigente_desde");
 
 CREATE UNIQUE INDEX ON "turnos" ("sucursal_id", "fecha", "numero");
 
+CREATE UNIQUE INDEX ON "turnos" ("sucursal_id", "fecha", "numero_muestra");
+
 CREATE UNIQUE INDEX ON "turnos" ("paciente_id", "fecha");
 
 CREATE INDEX ON "turnos" ("sucursal_id", "fecha", "estado", "numero");
+
+CREATE UNIQUE INDEX ON "muestras" ("turno_id", "tipo_muestra_id");
 
 CREATE INDEX ON "movimientos_muestra" ("muestra_id", "fecha_hora");
 
@@ -399,6 +404,8 @@ COMMENT ON COLUMN "turnos"."numero" IS 'Número de atención; se reinicia cada d
 
 COMMENT ON COLUMN "turnos"."box" IS 'Box de extracción desde el que se llamó al paciente';
 
+COMMENT ON COLUMN "turnos"."numero_muestra" IS 'Número de muestra del día (M1, M2…), por sucursal. Lo asigna rotular_muestras al extraer; vacío = todavía no se extrajo';
+
 COMMENT ON COLUMN "turnos"."registrado_por" IS 'Recepción que registró la llegada';
 
 COMMENT ON COLUMN "turnos"."created_at" IS 'Hora de llegada';
@@ -406,6 +413,8 @@ COMMENT ON COLUMN "turnos"."created_at" IS 'Hora de llegada';
 COMMENT ON TABLE "ordenes" IS 'Orden médica: qué análisis le pidieron al paciente.';
 
 COMMENT ON COLUMN "ordenes"."nro_orden" IS 'Lo genera la base: prefijo de la sucursal + año + correlativo (ej: S1-2026-000123)';
+
+COMMENT ON COLUMN "ordenes"."medico_id" IS 'Vacío = sin pedido médico (vino por su cuenta): la orden es particular, sin obra social';
 
 COMMENT ON COLUMN "ordenes"."turno_id" IS 'Visita en la que se recibió. Un turno puede tener varias órdenes (ej: sangre en una y orina en otra)';
 
@@ -463,7 +472,11 @@ COMMENT ON TABLE "grupo_analisis_items" IS 'Qué estudios componen cada grupo. U
 
 COMMENT ON COLUMN "grupo_analisis_items"."orden" IS 'Orden en que aparece el estudio dentro del grupo y del informe';
 
-COMMENT ON TABLE "muestras" IS 'Cada tubo físico, identificado con código de barras. Estados internos: extraida → procesada o rechazada.';
+COMMENT ON TABLE "muestras" IS 'Cada tubo de una visita del paciente, uno por tipo de muestra. Se crean con rotular_muestras. Estados internos: extraida → procesada o rechazada.';
+
+COMMENT ON COLUMN "muestras"."codigo_barras" IS 'Prefijo de la sucursal + fecha + número de muestra + tipo (ej: S1-20261028-M1-2)';
+
+COMMENT ON COLUMN "muestras"."turno_id" IS 'Visita en la que se extrajo. Todos los tubos de la visita llevan el número de muestra del turno';
 
 COMMENT ON COLUMN "muestras"."motivo_rechazo" IS 'Obligatorio cuando el estado es rechazada';
 
@@ -569,7 +582,7 @@ ALTER TABLE "grupo_analisis_items" ADD FOREIGN KEY ("grupo_id") REFERENCES "grup
 
 ALTER TABLE "grupo_analisis_items" ADD FOREIGN KEY ("analisis_id") REFERENCES "analisis" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "muestras" ADD FOREIGN KEY ("orden_id") REFERENCES "ordenes" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+ALTER TABLE "muestras" ADD FOREIGN KEY ("turno_id") REFERENCES "turnos" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "muestras" ADD FOREIGN KEY ("tipo_muestra_id") REFERENCES "tipos_muestra" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
