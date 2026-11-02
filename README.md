@@ -30,15 +30,17 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261101_02_mensaje_rango.sql` | El aviso de rango superpuesto muestra las edades como el panel ("18 años o más", "1 a 17 años"). |
 | `migrations/20261101_03_portal_paciente.sql` | Portal del paciente (LIMS-17): deja que el paciente lea el médico de sus propias órdenes, para que el portal pueda mostrar quién pidió los estudios. Las órdenes y los informes publicados ya los veía por las políticas de RLS. |
 | `migrations/20261102_01_acido_urico.sql` | Da de alta el ácido úrico (URIC) con los datos que tiene en Supabase (unidad, rango general, UB, su lugar en Sangre completa y sus rangos por sexo y edad), porque ninguna migración lo creaba. En Supabase no cambia nada. |
+| `migrations/20261102_02_orden_sin_medico.sql` | Orden sin pedido médico (LIMS-33): el médico deja de ser obligatorio y una orden sin médico no puede tener obra social, así que se cobra a valor particular. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
+| `pruebas/orden_sin_medico.sql` | Prueba de la orden sin pedido médico: se carga sin médico y particular, se rechaza con obra social y con médico sigue aceptando obra social. Termina en `ROLLBACK`: no deja datos. |
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las diecinueve migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veinte migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Revisión de los valores de referencia (LIMS-30)
 

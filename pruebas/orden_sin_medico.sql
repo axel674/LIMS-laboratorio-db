@@ -6,7 +6,7 @@
 --   3. Una orden con médico sigue aceptando obra social.
 -- Todo va dentro de una transacción que termina en ROLLBACK: no deja datos.
 --
--- Antes de ejecutarlo: tener aplicada la migración 20261102_01_orden_sin_medico.sql.
+-- Antes de ejecutarlo: tener aplicada la migración 20261102_02_orden_sin_medico.sql.
 -- Se ejecuta en el SQL Editor de Supabase (corre como postgres).
 
 BEGIN;
