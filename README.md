@@ -35,6 +35,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261102_04_reextraccion_muestras.sql` | Volver a extraer un tubo rechazado (LIMS-28): la regla de un tubo por tipo de muestra cuenta solo los no rechazados, y `rotular_muestras` crea el tubo nuevo (mismo número, con el intento al final: `S1-20261102-M1-3-2`) y le pasa los estudios del rechazado. |
 | `migrations/20261102_05_cobros.sql` | Cobros por orden (LIMS-19): tabla `cobros` (monto, medio de pago, quién y cuándo, sucursal de la orden), se puede pagar en partes sin pasar del total que paga el paciente (suma de `importe_paciente`) y un cobro se anula con motivo, no se borra. Funciones `registrar_cobro` y `anular_cobro`; una orden con cobros vigentes no se puede anular ni cambiar sus estudios o su cobertura. |
 | `migrations/20261102_06_caja_diaria.sql` | Caja diaria por sucursal (LIMS-20): tabla `cajas` (una por sucursal y día, con el efectivo inicial y el contado al cerrar). Funciones `abrir_caja`, `cerrar_caja`, `reabrir_caja` (solo el admin, con motivo) y `resumen_caja` (lo cobrado por medio de pago, lo esperado en efectivo y la diferencia). Para cobrar hay que tener abierta la caja del día; con la caja cerrada no se anulan cobros de ese día. |
+| `migrations/20261103_01_pedidos_adjuntos.sql` | Pedido médico adjunto a la orden (LIMS-34): bucket privado `pedidos` (hasta 5 MB por archivo, solo JPG, PNG o PDF) y tabla `orden_adjuntos` (ruta `<orden_id>/<nombre>`, nombre original, tipo, tamaño, quién y cuándo). Hasta 5 por orden. Lo lee el personal de la sucursal; recepción y el admin suben y quitan mientras la orden está abierta. El paciente no lo ve. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
@@ -44,7 +45,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veinticuatro migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veinticinco migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Revisión de los valores de referencia (LIMS-30)
 
