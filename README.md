@@ -38,6 +38,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261102_07_metricas_dashboard.sql` | Dashboard de métricas del admin (LIMS-22): función `metricas_dashboard(desde, hasta, sucursal)` con órdenes, estudios, pacientes nuevos, facturado y cobrado del período, por día, por estado, por sucursal y por medio de pago, y los estudios más pedidos. No cuenta órdenes ni cobros anulados. Solo la puede llamar el admin. |
 | `migrations/20261102_08_metricas_completas.sql` | Dashboard de métricas (LIMS-22): `metricas_dashboard` pasa a devolver también lo pendiente de cobro, las órdenes atrasadas, el detalle por obra social, los tiempos (días hasta informar y espera en la fila), la calidad (resultados fuera de rango y tubos rechazados con sus motivos) y los médicos que más derivan. |
 | `migrations/20261102_09_metricas_fila_y_caja.sql` | Dashboard de métricas (LIMS-22): suma la fila de atención (llegadas, pacientes que se retiraron sin atenderse y horas pico por día de la semana) y el control de caja (cobros anulados y cajas cerradas con faltante o sobrante). |
+| `migrations/20261103_01_pedidos_adjuntos.sql` | Pedido médico adjunto a la orden (LIMS-34): bucket privado `pedidos` (hasta 5 MB por archivo, solo JPG, PNG o PDF) y tabla `orden_adjuntos` (ruta `<orden_id>/<nombre>`, nombre original, tipo, tamaño, quién y cuándo). Hasta 5 por orden. Lo lee el personal de la sucursal; recepción y el admin suben y quitan mientras la orden está abierta. El paciente no lo ve. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
@@ -47,7 +48,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veintisiete migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veintiocho migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
 
 ## Revisión de los valores de referencia (LIMS-30)
 
