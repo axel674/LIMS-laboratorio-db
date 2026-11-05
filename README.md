@@ -50,7 +50,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veintiocho migraciones se aplican en orden en el proyecto de Supabase; las cuatro Edge Functions se despliegan con la CLI.
+Las veintiocho migraciones se aplican en orden en el proyecto de Supabase. Las cuatro Edge Functions las despliega Agustín, que es el admin del proyecto, desde `dev` después de mergear, para que producción coincida con el repo. Ojo: `supabase functions deploy` busca las funciones en `supabase/functions/<nombre>/` y en este repo están en `functions/`, así que no alcanza con correr el comando desde la raíz.
 
 ### Secretos de las Edge Functions
 
@@ -62,11 +62,7 @@ Se cargan en Supabase (Edge Functions → Secrets) o con `supabase secrets set`.
 | `GMAIL_APP_PASSWORD` | `generar-informe`, `enviar-resultado` | Contraseña de aplicación de esa cuenta (16 letras; no es la contraseña de la cuenta). |
 | `SITIO_URL` (opcional) | `generar-informe`, `enviar-resultado` | Dirección del sitio para el link del mail. Si no está, se usa la de Vercel. |
 
-Sin `GMAIL_USER` y `GMAIL_APP_PASSWORD` el informe se publica igual, pero no se avisa por mail. Después de cambiar `_shared/`, hay que volver a desplegar las funciones que lo usan:
-
-```bash
-supabase functions deploy generar-informe enviar-resultado --project-ref pwrlorvgpmjcdzveuljt
-```
+Sin `GMAIL_USER` y `GMAIL_APP_PASSWORD` el informe se publica igual, pero no se avisa por mail. Los secretos también los carga Agustín. Si se cambia algo de `_shared/`, hay que avisarle para que vuelva a desplegar las funciones que lo usan (hoy `generar-informe` y `enviar-resultado`).
 
 ## Revisión de los valores de referencia (LIMS-30)
 
