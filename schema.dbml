@@ -228,6 +228,26 @@ Table ordenes {
 }
 
 // ─────────────────────────────────────────────
+// Pedido médico adjunto
+// ─────────────────────────────────────────────
+
+Table orden_adjuntos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  orden_id uuid [not null, ref: > ordenes.id]
+  path text [not null, unique, note: 'Ruta en el bucket privado "pedidos": <orden_id>/<nombre único>']
+  nombre varchar [not null, note: 'Nombre original del archivo, el que ve el usuario']
+  tipo varchar [not null, note: 'image/jpeg, image/png o application/pdf']
+  tamano bigint [not null, note: 'Bytes del archivo achicado']
+  subido_por uuid [not null, default: `auth.uid()`, ref: > perfiles.id, note: 'Quién subió el archivo (sale del token)']
+  subido_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    orden_id
+  }
+  Note: 'Pedido médico escaneado que respalda la orden: hasta 5 fotos o PDF. Lo ve solo el personal de la sucursal; el paciente no.'
+}
+
+// ─────────────────────────────────────────────
 // Catálogo de análisis
 // ─────────────────────────────────────────────
 
