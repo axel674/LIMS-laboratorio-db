@@ -7,13 +7,16 @@
 // 3. Lo sube al bucket privado "informes" en <paciente_id>/<orden_id>.pdf.
 // 4. Llama a publicar_informe con el SHA-256 del archivo: el informe queda
 //    firmado y publicado, y la orden informada.
-// Devuelve una URL firmada para abrir el PDF en el momento.
+// 5. Avisa al paciente por mail con el link al portal (LIMS-18). Si el mail falla,
+//    el informe igual queda publicado: se puede reenviar con enviar-resultado.
+// Devuelve una URL firmada para abrir el PDF en el momento y cómo terminó el aviso.
 //
 // Todo se hace con la sesión de quien llama (no con la clave secreta): las
 // políticas de la base y del bucket deciden qué puede leer y subir.
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { armarPdf, type Estudio } from './pdf.ts';
+import { avisarResultado } from '../_shared/aviso-resultado.ts';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -156,5 +159,8 @@ Deno.serve(async (req) => {
   // Link para abrir el PDF ahora; vence en dos minutos
   const { data: firmado } = await cliente.storage.from('informes').createSignedUrl(ruta, 120);
 
-  return responder({ ...publicado, url: firmado?.signedUrl ?? null, bytes: pdf.length });
+  // El informe ya está publicado: un problema con el mail no lo deshace
+  const avisoMail = await avisarResultado(cliente, orden.id);
+
+  return responder({ ...publicado, url: firmado?.signedUrl ?? null, bytes: pdf.length, aviso_mail: avisoMail });
 });

@@ -40,15 +40,33 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261102_09_metricas_fila_y_caja.sql` | Dashboard de métricas (LIMS-22): suma la fila de atención (llegadas, pacientes que se retiraron sin atenderse y horas pico por día de la semana) y el control de caja (cobros anulados y cajas cerradas con faltante o sobrante). |
 | `migrations/20261103_01_pedidos_adjuntos.sql` | Pedido médico adjunto a la orden (LIMS-34): bucket privado `pedidos` (hasta 5 MB por archivo, solo JPG, PNG o PDF) y tabla `orden_adjuntos` (ruta `<orden_id>/<nombre>`, nombre original, tipo, tamaño, quién y cuándo). Hasta 5 por orden. Lo lee el personal de la sucursal; recepción y el admin suben y quitan mientras la orden está abierta. El paciente no lo ve. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
-| `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Usa la sesión de quien llama, no la clave secreta. |
+| `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Al publicar, avisa al paciente por mail (ver `enviar-resultado`). Usa la sesión de quien llama, no la clave secreta. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
+| `functions/enviar-resultado/` | Edge Function (LIMS-18): avisa por mail al paciente que su informe está listo, con el link al portal (sin el PDF adjunto) y marca `informes.email_enviado_en`. `generar-informe` lo hace solo al publicar; esta función sirve para reenviarlo (`{ orden_id, reenviar: true }`). Si el paciente no tiene email, no envía nada. |
+| `functions/_shared/` | Código que comparten las Edge Functions: `correo.ts` (envío por la cuenta de Gmail del laboratorio, SMTP 465) y `aviso-resultado.ts` (el mail del informe listo). |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 | `pruebas/orden_sin_medico.sql` | Prueba de la orden sin pedido médico: se carga sin médico y particular, se rechaza con obra social y con médico sigue aceptando obra social. Termina en `ROLLBACK`: no deja datos. |
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veintiocho migraciones se aplican en orden en el proyecto de Supabase; las tres Edge Functions se despliegan con la CLI.
+Las veintiocho migraciones se aplican en orden en el proyecto de Supabase; las cuatro Edge Functions se despliegan con la CLI.
+
+### Secretos de las Edge Functions
+
+Se cargan en Supabase (Edge Functions → Secrets) o con `supabase secrets set`. **Nunca van en el código ni en el repo**: acá solo se anotan los nombres.
+
+| Secreto | Lo usa | Qué es |
+|---|---|---|
+| `GMAIL_USER` | `generar-informe`, `enviar-resultado` | Dirección de la cuenta de Gmail del laboratorio que manda los mails. |
+| `GMAIL_APP_PASSWORD` | `generar-informe`, `enviar-resultado` | Contraseña de aplicación de esa cuenta (16 letras; no es la contraseña de la cuenta). |
+| `SITIO_URL` (opcional) | `generar-informe`, `enviar-resultado` | Dirección del sitio para el link del mail. Si no está, se usa la de Vercel. |
+
+Sin `GMAIL_USER` y `GMAIL_APP_PASSWORD` el informe se publica igual, pero no se avisa por mail. Después de cambiar `_shared/`, hay que volver a desplegar las funciones que lo usan:
+
+```bash
+supabase functions deploy generar-informe enviar-resultado --project-ref pwrlorvgpmjcdzveuljt
+```
 
 ## Revisión de los valores de referencia (LIMS-30)
 
