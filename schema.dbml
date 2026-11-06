@@ -305,7 +305,9 @@ Table analisis_rangos {
   edad_hasta smallint [note: 'Edad en años hasta la que aplica (sin incluir). Vacío = sin límite']
   valor_min numeric
   valor_max numeric
-  Note: 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta.'
+  absoluto_min numeric [note: 'Absoluto mínimo del componente en ese rango de edad (ej: neutrófilos /mm³). Vacío = el general del catálogo']
+  absoluto_max numeric [note: 'Absoluto máximo del componente en ese rango de edad. Vacío = el general del catálogo']
+  Note: 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta. Los pediátricos empiezan a los 1 año: los menores de 1 año usan el general.'
 }
 
 Table grupos_analisis {

@@ -4,7 +4,9 @@
 -- rango general del catálogo (el que se usa cuando no hay uno por sexo y edad) y
 -- cada rango por sexo y edad. Los estudios que no tienen rangos propios salen
 -- igual, con las columnas del rango en blanco. La fórmula leucocitaria suma sus
--- absolutos, que la base calcula con los glóbulos blancos de la orden.
+-- absolutos, que la base calcula con los glóbulos blancos de la orden; si el
+-- rango por edad trae un absoluto propio (neutrófilos y linfocitos en los
+-- chicos), se muestra ese y, si no, el general del catálogo.
 --
 -- Cómo se usa: Supabase → SQL Editor → pegar y Run → Download CSV. Ese archivo
 -- es la foto real de la base; `rangos_referencia.csv` es la misma lista tal como
@@ -39,8 +41,8 @@ SELECT
   r.valor_min AS "Rango desde",
   r.valor_max AS "Rango hasta",
   a.absoluto_unidad AS "Absoluto unidad",
-  a.absoluto_min AS "Absoluto desde",
-  a.absoluto_max AS "Absoluto hasta"
+  coalesce(r.absoluto_min, a.absoluto_min) AS "Absoluto desde",
+  coalesce(r.absoluto_max, a.absoluto_max) AS "Absoluto hasta"
 FROM public.analisis a
 JOIN public.tipos_muestra tm ON tm.id = a.tipo_muestra_id
 LEFT JOIN public.analisis_rangos r ON r.analisis_id = a.id
