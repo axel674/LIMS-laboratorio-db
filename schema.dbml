@@ -76,6 +76,12 @@ Enum medio_pago {
   transferencia
 }
 
+Enum via_cambio_password {
+  panel [note: 'Provisoria nueva dada por recepción o el admin']
+  mail_pedido [note: 'El paciente pidió el link por mail']
+  mail [note: 'El paciente la cambió desde el link']
+}
+
 // ─────────────────────────────────────────────
 // Usuarios y personas
 // ─────────────────────────────────────────────
@@ -97,6 +103,19 @@ Table perfiles {
   created_at timestamptz [not null, default: `now()`]
   Note: '''Un perfil por cada usuario que inicia sesión (personal o paciente).
   Email interno de login: <dni>@pacientes.lims.local o <usuario>@personal.lims.local.'''
+}
+
+Table cambios_password {
+  id bigint [pk, increment]
+  perfil_id uuid [not null, ref: > perfiles.id]
+  via via_cambio_password [not null]
+  hecho_por uuid [ref: > perfiles.id, note: 'Quién la restableció desde el panel; vacío si fue por mail']
+  creado_en timestamptz [not null, default: `now()`]
+
+  indexes {
+    (perfil_id, creado_en)
+  }
+  Note: 'Contraseñas restablecidas desde el panel o recuperadas por mail (LIMS-45). Solo las lee el admin.'
 }
 
 Table personal {

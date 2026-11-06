@@ -41,8 +41,11 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `migrations/20261103_01_pedidos_adjuntos.sql` | Pedido médico adjunto a la orden (LIMS-34): bucket privado `pedidos` (hasta 5 MB por archivo, solo JPG, PNG o PDF) y tabla `orden_adjuntos` (ruta `<orden_id>/<nombre>`, nombre original, tipo, tamaño, quién y cuándo). Hasta 5 por orden. Lo lee el personal de la sucursal; recepción y el admin suben y quitan mientras la orden está abierta. El paciente no lo ve. |
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Al publicar, avisa al paciente por mail (ver `enviar-resultado`). Usa la sesión de quien llama, no la clave secreta. |
+| `migrations/20261105_01_cambios_password.sql` | Recuperar y restablecer contraseñas (LIMS-45): tabla `cambios_password` (a quién, por qué vía, quién y cuándo; solo la lee el admin) y la función `completar_recuperacion_password`, que cierra la recuperación por mail si el paciente pidió el link en la última hora. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `functions/enviar-resultado/` | Edge Function (LIMS-18): avisa por mail al paciente que su informe está listo, con el link al portal (sin el PDF adjunto) y marca `informes.email_enviado_en`. `generar-informe` lo hace solo al publicar; esta función sirve para reenviarlo (`{ orden_id, reenviar: true }`). Si el paciente no tiene email, no envía nada. |
+| `functions/restablecer-password/` | Edge Function (LIMS-45): recepción o el admin le dan a un paciente una contraseña provisoria nueva (al personal, solo el admin). Se pide cambiarla en el siguiente ingreso y queda registrado en `cambios_password`. Devuelve la provisoria una sola vez. |
+| `functions/recuperar-password/` | Edge Function (LIMS-45): el paciente pide desde el login un link para restablecer su contraseña. Lo genera con la clave secreta y lo manda al email real del paciente (la cuenta de Auth usa un email interno). Responde siempre lo mismo y manda como mucho un mail cada 5 minutos. Se despliega con `verify_jwt` en false. |
 | `functions/_shared/` | Código que comparten las Edge Functions: `correo.ts` (envío por la cuenta de Gmail del laboratorio, SMTP 465) y `aviso-resultado.ts` (el mail del informe listo). |
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
@@ -50,7 +53,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veintiocho migraciones se aplican en orden en el proyecto de Supabase. Las cuatro Edge Functions las despliega Agustín, que es el admin del proyecto, desde `dev` después de mergear, para que producción coincida con el repo. Ojo: `supabase functions deploy` busca las funciones en `supabase/functions/<nombre>/` y en este repo están en `functions/`, así que no alcanza con correr el comando desde la raíz.
+Las veintinueve migraciones se aplican en orden en el proyecto de Supabase. Las seis Edge Functions las despliega Agustín, que es el admin del proyecto, desde `dev` después de mergear, para que producción coincida con el repo. Ojo: `supabase functions deploy` busca las funciones en `supabase/functions/<nombre>/` y en este repo están en `functions/`, así que no alcanza con correr el comando desde la raíz.
 
 ### Secretos de las Edge Functions
 
@@ -58,9 +61,9 @@ Se cargan en Supabase (Edge Functions → Secrets) o con `supabase secrets set`.
 
 | Secreto | Lo usa | Qué es |
 |---|---|---|
-| `GMAIL_USER` | `generar-informe`, `enviar-resultado` | Dirección de la cuenta de Gmail del laboratorio que manda los mails. |
-| `GMAIL_APP_PASSWORD` | `generar-informe`, `enviar-resultado` | Contraseña de aplicación de esa cuenta (16 letras; no es la contraseña de la cuenta). |
-| `SITIO_URL` (opcional) | `generar-informe`, `enviar-resultado` | Dirección del sitio para el link del mail. Si no está, se usa la de Vercel. |
+| `GMAIL_USER` | `generar-informe`, `enviar-resultado`, `recuperar-password` | Dirección de la cuenta de Gmail del laboratorio que manda los mails. |
+| `GMAIL_APP_PASSWORD` | `generar-informe`, `enviar-resultado`, `recuperar-password` | Contraseña de aplicación de esa cuenta (16 letras; no es la contraseña de la cuenta). |
+| `SITIO_URL` (opcional) | `generar-informe`, `enviar-resultado`, `recuperar-password` | Dirección del sitio para el link del mail. Si no está, se usa la de Vercel. |
 
 Sin `GMAIL_USER` y `GMAIL_APP_PASSWORD` el informe se publica igual, pero no se avisa por mail. Los secretos también los carga Agustín. Si se cambia algo de `_shared/`, hay que avisarle para que vuelva a desplegar las funciones que lo usan (hoy `generar-informe` y `enviar-resultado`).
 
