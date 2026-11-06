@@ -42,6 +42,7 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `functions/crear-paciente/` | Edge Function: recepción o un admin dan de alta un paciente con contraseña provisoria, su obra social (o particular) y número de afiliado. Devuelve el id de la ficha. |
 | `functions/generar-informe/` | Edge Function: el bioquímico firma el informe de una orden validada. Arma el PDF (`pdf.ts`, liviano: unos 8 KB), lo sube al bucket `informes` y llama a `publicar_informe`. Al publicar, avisa al paciente por mail (ver `enviar-resultado`). Usa la sesión de quien llama, no la clave secreta. |
 | `migrations/20261105_01_cambios_password.sql` | Recuperar y restablecer contraseñas (LIMS-45): tabla `cambios_password` (a quién, por qué vía, quién y cuándo; solo la lee el admin) y la función `completar_recuperacion_password`, que cierra la recuperación por mail si el paciente pidió el link en la última hora. |
+| `migrations/20261106_01_rangos_pediatricos.sql` | Correcciones de los valores de referencia aprobadas por el bioquímico (LIMS-30): rangos pediátricos de 1 a 17 años para glucemia, uremia, TSH, transaminasas, colesterol, triglicéridos, LDL y HDL, y absolutos pediátricos de neutrófilos y linfocitos en `analisis_rangos`. Los menores de 1 año siguen usando el general. |
 | `functions/crear-personal/` | Edge Function: un administrador da de alta a una persona del personal (cuenta, perfil y datos de personal) con contraseña provisoria. |
 | `functions/enviar-resultado/` | Edge Function (LIMS-18): avisa por mail al paciente que su informe está listo, con el link al portal (sin el PDF adjunto) y marca `informes.email_enviado_en`. `generar-informe` lo hace solo al publicar; esta función sirve para reenviarlo (`{ orden_id, reenviar: true }`). Si el paciente no tiene email, no envía nada. |
 | `functions/restablecer-password/` | Edge Function (LIMS-45): recepción o el admin le dan a un paciente una contraseña provisoria nueva (al personal, solo el admin). Se pide cambiarla en el siguiente ingreso y queda registrado en `cambios_password`. Devuelve la provisoria una sola vez. |
@@ -50,10 +51,11 @@ Modelo, migraciones y funciones de servidor del LIMS, sobre Supabase (PostgreSQL
 | `seed_usuarios_prueba.sql` | Usuarios de prueba (admin, recepción, bioquímico y un paciente). Solo para desarrollo. |
 | `pruebas/rls_sucursal.sql` | Prueba del aislamiento por sucursal: arma datos en las dos sucursales, simula el ingreso de cada cuenta y verifica qué ve. Termina en `ROLLBACK`: no deja datos. |
 | `pruebas/orden_sin_medico.sql` | Prueba de la orden sin pedido médico: se carga sin médico y particular, se rechaza con obra social y con médico sigue aceptando obra social. Termina en `ROLLBACK`: no deja datos. |
+| `pruebas/rangos_pediatricos.sql` | Prueba de los rangos pediátricos de LIMS-30: verifica los valores de 1 a 17 años, los absolutos de neutrófilos y linfocitos y que el rango general no cambió. Termina en `ROLLBACK`: no deja datos. |
 | `consultas/exportar_rangos.sql` | Consulta que exporta los valores de referencia de todos los estudios (unidad, rango general, rangos por sexo y edad y absolutos de la fórmula), para revisarlos con el bioquímico (LIMS-30). |
 | `consultas/rangos_referencia.csv` | La misma lista tal como queda después de las migraciones, en CSV para Excel (separador `;`, coma decimal) con una columna al final para anotar correcciones. |
 
-Las veintinueve migraciones se aplican en orden en el proyecto de Supabase. Las seis Edge Functions las despliega Agustín, que es el admin del proyecto, desde `dev` después de mergear, para que producción coincida con el repo. Ojo: `supabase functions deploy` busca las funciones en `supabase/functions/<nombre>/` y en este repo están en `functions/`, así que no alcanza con correr el comando desde la raíz.
+Las treinta migraciones se aplican en orden en el proyecto de Supabase. Las seis Edge Functions las despliega Agustín, que es el admin del proyecto, desde `dev` después de mergear, para que producción coincida con el repo. Ojo: `supabase functions deploy` busca las funciones en `supabase/functions/<nombre>/` y en este repo están en `functions/`, así que no alcanza con correr el comando desde la raíz.
 
 ### Secretos de las Edge Functions
 
@@ -69,19 +71,16 @@ Sin `GMAIL_USER` y `GMAIL_APP_PASSWORD` el informe se publica igual, pero no se 
 
 ## Revisión de los valores de referencia (LIMS-30)
 
-Los rangos que se cargaron en LIMS-13 son orientativos: los tiene que confirmar el bioquímico, porque cada laboratorio usa los de su equipo y su método.
+Los rangos se cargaron orientativos en LIMS-13. El bioquímico revisó la planilla del 03/11 (los 32 estudios y el CSV adjunto) y aprobó las correcciones el 06/11. Quedaron en `migrations/20261106_01_rangos_pediatricos.sql`:
 
-1. Correr `consultas/exportar_rangos.sql` en el SQL Editor y descargar el CSV: es la foto real de la base (puede tener cambios hechos desde el panel). Si no hay acceso, `consultas/rangos_referencia.csv` es la misma lista tal como queda después de las migraciones.
-2. Anotar las correcciones en la última columna.
-3. Cargarlas desde el panel, sin migración: **Análisis** (unidad, rango general y texto) y **Rangos** (por sexo y edad).
+- **Menores de 1 año:** siguen usando el rango general del catálogo; no se agregan franjas de 0 a 1 año.
+- **Rangos pediátricos de 1 a 17 años:** glucemia 60–100 mg/dL, uremia 15–40 mg/dL, TSH 0,7–5,0 µUI/mL, GOT ≤40 U/L, GPT ≤30 U/L, HDL ≥40 mg/dL, colesterol ≤170 mg/dL, triglicéridos ≤100 mg/dL y LDL ≤110 mg/dL.
+- **Fórmula leucocitaria:** los neutrófilos y los linfocitos de 1 a 17 años llevan su propio absoluto (1.500–8.500 y 1.500–7.000 /mm³). Monocitos, eosinófilos y basófilos mantienen el absoluto general.
+- **Unidades y valores puntuales:** confirmados sin cambios.
 
-Lo que conviene preguntarle:
+El rango por edad ahora puede guardar su propio absoluto (`analisis_rangos.absoluto_min/max`). Si no lo trae, se usa el general del catálogo. Los resultados ya cargados no cambian: guardan el rango con el que se compararon.
 
-- **Ácido úrico (URIC):** en Supabase está completo (mg/dL, general 2,5 – 7 y tres rangos por sexo y edad), pero se había cargado desde el panel y ninguna migración lo creaba. Lo crea `20261102_01_acido_urico.sql` con esos mismos valores: confirmarlos como los demás.
-- **Menores de 1 año:** no tienen rango propio y caen al general del catálogo, porque los pediátricos van de 1 a 17 años.
-- **Estudios sin rango por sexo y edad:** usan el general del catálogo (plaquetas, glucemia, uremia, colesterol, triglicéridos, TSH, TP, HCM, CHCM, LDL, bilirrubinas, orina y sangre oculta).
-- **Fórmula leucocitaria:** solo cambian los neutrófilos y los linfocitos en los chicos; los absolutos se calculan con los glóbulos blancos de la orden.
-- **Unidades:** revisar sobre todo `mm/1ª hora` en la eritrosedimentación y que los absolutos de la fórmula vayan en `/mm³`.
+La lista completa, para revisar o volver a exportar, está en `consultas/exportar_rangos.sql` y `consultas/rangos_referencia.csv` (la foto después de esta migración).
 
 ## Cómo se actualiza el modelo
 

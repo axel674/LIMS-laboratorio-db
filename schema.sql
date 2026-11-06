@@ -239,7 +239,9 @@ CREATE TABLE "analisis_rangos" (
   "edad_desde" smallint NOT NULL DEFAULT 0,
   "edad_hasta" smallint,
   "valor_min" numeric,
-  "valor_max" numeric
+  "valor_max" numeric,
+  "absoluto_min" numeric,
+  "absoluto_max" numeric
 );
 
 CREATE TABLE "grupos_analisis" (
@@ -501,13 +503,17 @@ COMMENT ON COLUMN "analisis"."ub" IS 'Unidades bioquímicas (NBU) que vale. Nulo
 
 COMMENT ON COLUMN "analisis"."codigo_nbu" IS 'Código de la práctica en el Nomenclador Bioquímico Único';
 
-COMMENT ON TABLE "analisis_rangos" IS 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta.';
+COMMENT ON TABLE "analisis_rangos" IS 'Valores de referencia por sexo y edad. Gana el del sexo del paciente y la franja de edad más corta. Los pediátricos empiezan a los 1 año: los menores de 1 año usan el general.';
 
 COMMENT ON COLUMN "analisis_rangos"."sexo" IS 'Vacío = para todos los sexos';
 
 COMMENT ON COLUMN "analisis_rangos"."edad_desde" IS 'Edad en años desde la que aplica (incluida)';
 
 COMMENT ON COLUMN "analisis_rangos"."edad_hasta" IS 'Edad en años hasta la que aplica (sin incluir). Vacío = sin límite';
+
+COMMENT ON COLUMN "analisis_rangos"."absoluto_min" IS 'Absoluto mínimo del componente en ese rango de edad (ej: neutrófilos /mm³). Vacío = el general del catálogo';
+
+COMMENT ON COLUMN "analisis_rangos"."absoluto_max" IS 'Absoluto máximo del componente en ese rango de edad. Vacío = el general del catálogo';
 
 COMMENT ON TABLE "grupos_analisis" IS 'Atajo de recepción: al elegir el grupo en la orden se agregan todos sus estudios. No se borran: se desactivan.';
 
