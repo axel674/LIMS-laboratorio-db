@@ -398,6 +398,58 @@ CREATE UNIQUE INDEX ON "cajas" ("sucursal_id", "fecha");
 
 CREATE INDEX ON "notificaciones" ("destinatario_id", "leida");
 
+CREATE INDEX ON "analisis" ("absoluto_de");
+
+CREATE INDEX ON "analisis" ("tipo_muestra_id");
+
+CREATE INDEX ON "cajas" ("abierta_por");
+
+CREATE INDEX ON "cajas" ("cerrada_por");
+
+CREATE INDEX ON "cajas" ("reabierta_por");
+
+CREATE INDEX ON "cambios_password" ("hecho_por");
+
+CREATE INDEX ON "cobros" ("anulado_por");
+
+CREATE INDEX ON "cobros" ("cobrado_por");
+
+CREATE INDEX ON "informes" ("firmado_por");
+
+CREATE INDEX ON "movimientos_muestra" ("usuario_id");
+
+CREATE INDEX ON "muestras" ("tipo_muestra_id");
+
+CREATE INDEX ON "notificaciones" ("orden_id");
+
+CREATE INDEX ON "orden_adjuntos" ("subido_por");
+
+CREATE INDEX ON "orden_analisis" ("analisis_id");
+
+CREATE INDEX ON "orden_analisis" ("grupo_id");
+
+CREATE INDEX ON "ordenes" ("anulada_por");
+
+CREATE INDEX ON "ordenes" ("medico_id");
+
+CREATE INDEX ON "ordenes" ("obra_social_id");
+
+CREATE INDEX ON "ordenes" ("recibida_por");
+
+CREATE INDEX ON "pacientes" ("obra_social_id");
+
+CREATE INDEX ON "resultados" ("cargado_por");
+
+CREATE INDEX ON "resultados" ("validado_por");
+
+CREATE INDEX ON "turnos" ("finalizado_por");
+
+CREATE INDEX ON "turnos" ("llamado_por");
+
+CREATE INDEX ON "turnos" ("registrado_por");
+
+CREATE INDEX ON "valores_ub" ("creado_por");
+
 COMMENT ON TABLE "perfiles" IS 'Un perfil por cada usuario que inicia sesión (personal o paciente).
   Email interno de login: <dni>@pacientes.lims.local o <usuario>@personal.lims.local.';
 
