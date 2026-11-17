@@ -155,14 +155,6 @@ Table sucursales {
   Note: 'Sucursales del laboratorio. Cada una tiene su fila de atención, sus boxes y su numeración de órdenes. El personal elige al entrar en cuál trabaja.'
 }
 
-Table configuracion {
-  id boolean [pk, default: true, note: 'Siempre true: la tabla tiene una sola fila']
-  cantidad_boxes smallint [not null, default: 2, note: 'Boxes de extracción habilitados (1 a 20)']
-  updated_at timestamptz [not null, default: `now()`]
-  updated_by uuid [ref: > perfiles.id]
-  Note: 'SIN USO desde 20261023_01_sucursales: los boxes pasaron a sucursales.cantidad_boxes. Se borra cuando el frontend nuevo esté publicado.'
-}
-
 Table obras_sociales {
   id bigint [pk, increment]
   nombre varchar [unique, not null]
@@ -502,7 +494,6 @@ TableGroup recepcion [color: #0E9AA7] {
   sucursales
   turnos
   ordenes
-  configuracion
 }
 
 TableGroup catalogo [color: #6C5CE7] {
